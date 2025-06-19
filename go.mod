@@ -1,4 +1,4 @@
-module gthulhu-api
+module github.com/Gthulhu/api
 
 go 1.22.6
 
