@@ -1,10 +1,11 @@
 # BSS Metrics API Server
 
-This is an API Server implemented in Golang for receiving and processing BSS (BPF Scheduler Subsystem) metrics data.
+This is an API Server implemented in Golang for receiving and processing BSS (BPF Scheduler Subsystem) metrics data and providing system information.
 
 ## Features
 
 - Receive BSS metrics data sent by clients
+- Query pod-to-PID mappings from the system
 - Provide RESTful API in JSON format
 - Include health check endpoint
 - Support CORS
@@ -52,7 +53,48 @@ This is an API Server implemented in Golang for receiving and processing BSS (BP
 }
 ```
 
-### 2. Health Check
+### 2. Get Pod-PID Mappings
+- **URL**: `/api/v1/pods/pids`
+- **Method**: `GET`
+
+#### Response
+```json
+{
+  "success": true,
+  "message": "Pod-PID mappings retrieved successfully",
+  "timestamp": "2025-06-25T13:50:21Z",
+  "pods": [
+    {
+      "pod_name": "",
+      "namespace": "",
+      "pod_uid": "65979e01-4cb1-4d08-9dba-45530253ff00",
+      "container_id": "5148a146ffbbe8672f11494843d54b8769d2eccc677c02027fc09aba192e3c67",
+      "processes": [
+        {
+          "pid": 717720,
+          "command": "pause",
+          "ppid": 717576
+        },
+        {
+          "pid": 718001,
+          "command": "loki",
+          "ppid": 717576
+        }
+      ]
+    }
+  ]
+}
+```
+
+#### Error Response
+```json
+{
+  "success": false,
+  "error": "Failed to get pod-pid mappings: ..."
+}
+```
+
+### 3. Health Check
 - **URL**: `/health`
 - **Method**: `GET`
 
@@ -65,7 +107,7 @@ This is an API Server implemented in Golang for receiving and processing BSS (BP
 }
 ```
 
-### 3. API Information
+### 4. API Information
 - **URL**: `/`
 - **Method**: `GET`
 
@@ -109,6 +151,18 @@ curl -X POST http://localhost:8080/api/v1/metrics \
 curl http://localhost:8080/health
 ```
 
+#### Query Pod-PID Mappings
+```bash
+# Get all pod-pid mappings
+curl -X GET http://localhost:8080/api/v1/pods/pids
+
+# Format output with jq for better readability
+curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.'
+
+# Get only specific information (example: extract pod UIDs and process counts)
+curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.pods[] | {pod_uid: .pod_uid, process_count: (.processes | length)}'
+```
+
 ## Data Structure Description
 
 ### BssData Structure
@@ -125,6 +179,22 @@ curl http://localhost:8080/health
 | `nr_bounce_dispatches` | uint64 | Number of bounce dispatches |
 | `nr_failed_dispatches` | uint64 | Number of failed dispatches |
 | `nr_sched_congested` | uint64 | Number of scheduler congestion occurrences |
+
+### PodInfo Structure
+| Field | Type | Description |
+|-------|------|-------------|
+| `pod_name` | string | Name of the pod (currently empty, extracted from metadata) |
+| `namespace` | string | Namespace of the pod (currently empty, extracted from metadata) |
+| `pod_uid` | string | Unique identifier of the pod |
+| `container_id` | string | Container ID within the pod |
+| `processes` | []PodProcess | List of processes running in the pod |
+
+### PodProcess Structure
+| Field | Type | Description |
+|-------|------|-------------|
+| `pid` | int | Process ID |
+| `command` | string | Command name of the process |
+| `ppid` | int | Parent Process ID (optional) |
 
 ## Development and Extension
 

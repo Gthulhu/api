@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -35,6 +40,199 @@ type MetricsResponse struct {
 type ErrorResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error"`
+}
+
+// PodProcess represents a process information within a pod
+type PodProcess struct {
+	PID     int    `json:"pid"`
+	Command string `json:"command"`
+	PPID    int    `json:"ppid,omitempty"`
+}
+
+// PodInfo represents pod information with associated processes
+type PodInfo struct {
+	PodName     string       `json:"pod_name"`
+	Namespace   string       `json:"namespace"`
+	PodUID      string       `json:"pod_uid"`
+	ContainerID string       `json:"container_id,omitempty"`
+	Processes   []PodProcess `json:"processes"`
+}
+
+// PodPidResponse represents the response structure for pod-pid mapping
+type PodPidResponse struct {
+	Success   bool      `json:"success"`
+	Message   string    `json:"message"`
+	Timestamp string    `json:"timestamp"`
+	Pods      []PodInfo `json:"pods"`
+}
+
+// getPodInfoFromCgroup extracts pod information from cgroup path
+func getPodInfoFromCgroup(cgroupPath string) (string, string, string, error) {
+	// Parse cgroup path to extract pod information
+	// Format: /kubepods/burstable/pod<pod-uid>/<container-id>
+	// or: /kubepods/pod<pod-uid>/<container-id>
+	parts := strings.Split(cgroupPath, "/")
+
+	var podUID, containerID string
+	for i, part := range parts {
+		if strings.HasPrefix(part, "pod") {
+			podUID = strings.TrimPrefix(part, "pod")
+			podUID = strings.ReplaceAll(podUID, "_", "-")
+			if i+1 < len(parts) {
+				containerID = parts[i+1]
+			}
+			break
+		}
+	}
+
+	if podUID == "" {
+		return "", "", "", fmt.Errorf("pod UID not found in cgroup path")
+	}
+
+	return podUID, containerID, "", nil
+}
+
+// getProcessInfo reads process information from /proc/<pid>/
+func getProcessInfo(pid int) (PodProcess, error) {
+	process := PodProcess{PID: pid}
+
+	// Read command from /proc/<pid>/comm
+	commPath := fmt.Sprintf("/proc/%d/comm", pid)
+	if data, err := os.ReadFile(commPath); err == nil {
+		process.Command = strings.TrimSpace(string(data))
+	}
+
+	// Read PPID from /proc/<pid>/stat
+	statPath := fmt.Sprintf("/proc/%d/stat", pid)
+	if data, err := os.ReadFile(statPath); err == nil {
+		fields := strings.Fields(string(data))
+		if len(fields) >= 4 {
+			if ppid, err := strconv.Atoi(fields[3]); err == nil {
+				process.PPID = ppid
+			}
+		}
+	}
+
+	return process, nil
+}
+
+// getPodPidMapping scans the system to find pod-pid mappings
+func getPodPidMapping() ([]PodInfo, error) {
+	podMap := make(map[string]*PodInfo)
+
+	// Walk through /proc to find all processes
+	procDir := "/proc"
+	entries, err := os.ReadDir(procDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read /proc directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Check if directory name is a PID (numeric)
+		pid, err := strconv.Atoi(entry.Name())
+		if err != nil {
+			continue
+		}
+
+		// Read cgroup information for this process
+		cgroupPath := fmt.Sprintf("/proc/%d/cgroup", pid)
+		file, err := os.Open(cgroupPath)
+		if err != nil {
+			continue
+		}
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := scanner.Text()
+			// Look for kubepods in cgroup hierarchy
+			if strings.Contains(line, "kubepods") {
+				parts := strings.Split(line, ":")
+				if len(parts) >= 3 {
+					cgroupHierarchy := parts[2]
+
+					// Extract pod information
+					podUID, containerID, _, err := getPodInfoFromCgroup(cgroupHierarchy)
+					if err != nil {
+						continue
+					}
+
+					// Get process information
+					process, err := getProcessInfo(pid)
+					if err != nil {
+						continue
+					}
+
+					// Create or update pod info
+					if podInfo, exists := podMap[podUID]; exists {
+						podInfo.Processes = append(podInfo.Processes, process)
+						if containerID != "" && podInfo.ContainerID == "" {
+							podInfo.ContainerID = containerID
+						}
+					} else {
+						podMap[podUID] = &PodInfo{
+							PodUID:      podUID,
+							ContainerID: containerID,
+							Processes:   []PodProcess{process},
+						}
+					}
+				}
+				break
+			}
+		}
+		file.Close()
+	}
+
+	// Convert map to slice
+	var pods []PodInfo
+	for _, podInfo := range podMap {
+		pods = append(pods, *podInfo)
+	}
+
+	return pods, nil
+}
+
+// PodPidHandler provides pod-pid mapping information
+func PodPidHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Only accept GET requests
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Only GET method is allowed",
+		})
+		return
+	}
+
+	// Get pod-pid mappings
+	pods, err := getPodPidMapping()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Failed to get pod-pid mappings: " + err.Error(),
+		})
+		return
+	}
+
+	// Log the request
+	log.Printf("Pod-PID mapping requested: found %d pods with processes", len(pods))
+
+	// Send success response
+	response := PodPidResponse{
+		Success:   true,
+		Message:   "Pod-PID mappings retrieved successfully",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Pods:      pods,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
 }
 
 // MetricsHandler handles incoming metrics data
@@ -141,13 +339,14 @@ func main() {
 
 	// Define routes
 	r.HandleFunc("/api/v1/metrics", MetricsHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/api/v1/pods/pids", PodPidHandler).Methods("GET", "OPTIONS")
 	r.HandleFunc("/health", HealthHandler).Methods("GET")
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		response := map[string]string{
 			"message":   "BSS Metrics API Server",
 			"version":   "1.0.0",
-			"endpoints": "/api/v1/metrics (POST), /health (GET)",
+			"endpoints": "/api/v1/metrics (POST), /api/v1/pods/pids (GET), /health (GET)",
 		}
 		json.NewEncoder(w).Encode(response)
 	}).Methods("GET")
@@ -156,9 +355,10 @@ func main() {
 	port := ":8080"
 	log.Printf("Starting BSS Metrics API Server on port %s", port)
 	log.Printf("Endpoints:")
-	log.Printf("  POST /api/v1/metrics - Submit metrics data")
-	log.Printf("  GET  /health         - Health check")
-	log.Printf("  GET  /               - API information")
+	log.Printf("  POST /api/v1/metrics   - Submit metrics data")
+	log.Printf("  GET  /api/v1/pods/pids - Get pod-PID mappings")
+	log.Printf("  GET  /health           - Health check")
+	log.Printf("  GET  /                 - API information")
 
 	// Start server
 	srv := &http.Server{
