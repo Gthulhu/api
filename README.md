@@ -11,6 +11,8 @@ This is an API Server implemented in Golang for receiving and processing BSS (BP
 - Support CORS
 - Request logging capability
 - Error handling and validation
+- Kubernetes integration for pod label information
+- Configurable scheduling strategies based on pod labels
 
 ## API Endpoints
 
@@ -94,7 +96,65 @@ This is an API Server implemented in Golang for receiving and processing BSS (BP
 }
 ```
 
-### 3. Health Check
+### 3. Get and Set Scheduling Strategies
+- **URL**: `/api/v1/scheduling/strategies`
+- **Methods**: `GET`, `POST`
+- **Content-Type**: `application/json`
+
+#### GET Response
+```json
+{
+  "success": true,
+  "message": "Scheduling strategies retrieved successfully",
+  "timestamp": "2025-06-19T10:30:00Z",
+  "scheduling": [
+    {
+      "priority": true,
+      "execution_time": 20000000,
+      "pid": 718001
+    },
+    {
+      "priority": false,
+      "execution_time": 10000000,
+      "pid": 717720
+    }
+  ]
+}
+```
+
+#### POST Request Format
+```json
+{
+  "strategies": [
+    {
+      "priority": true,
+      "execution_time": 20000000,
+      "selectors": [
+        {
+          "key": "nf",
+          "value": "upf"
+        }
+      ]
+    },
+    {
+      "priority": false,
+      "execution_time": 10000000,
+      "pid": 717720
+    }
+  ]
+}
+```
+
+#### POST Success Response
+```json
+{
+  "success": true,
+  "message": "Scheduling strategies saved successfully",
+  "timestamp": "2025-06-19T10:30:00Z"
+}
+```
+
+### 4. Health Check
 - **URL**: `/health`
 - **Method**: `GET`
 
@@ -107,7 +167,7 @@ This is an API Server implemented in Golang for receiving and processing BSS (BP
 }
 ```
 
-### 4. API Information
+### 5. API Information
 - **URL**: `/`
 - **Method**: `GET`
 
@@ -125,7 +185,16 @@ go run main.go
 
 The service will start on `http://localhost:8080`.
 
-### 3. Test API
+### 3. Start Service with Kubernetes integration
+```bash
+# Use local Kubernetes config
+go run main.go --kubeconfig=$HOME/.kube/config
+
+# Run in-cluster (when deployed in Kubernetes)
+go run main.go --in-cluster=true
+```
+
+### 4. Test API
 
 #### Submit metrics data
 ```bash
@@ -163,6 +232,36 @@ curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.'
 curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.pods[] | {pod_uid: .pod_uid, process_count: (.processes | length)}'
 ```
 
+#### Get scheduling strategies
+```bash
+curl -X GET http://localhost:8080/api/v1/scheduling/strategies
+```
+
+#### Set scheduling strategies
+```bash
+curl -X POST http://localhost:8080/api/v1/scheduling/strategies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "strategies": [
+      {
+        "priority": true,
+        "execution_time": 20000000,
+        "selectors": [
+          {
+            "key": "nf",
+            "value": "upf"
+          }
+        ]
+      },
+      {
+        "priority": false,
+        "execution_time": 10000000,
+        "pid": 717720
+      }
+    ]
+  }'
+```
+
 ## Data Structure Description
 
 ### BssData Structure
@@ -196,6 +295,20 @@ curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.pods[] | {pod_uid: 
 | `command` | string | Command name of the process |
 | `ppid` | int | Parent Process ID (optional) |
 
+### SchedulingStrategy Structure
+| Field | Type | Description |
+|-------|------|-------------|
+| `priority` | bool | Indicates if this is a high-priority strategy |
+| `execution_time` | uint64 | Desired execution time in nanoseconds |
+| `pid` | uint32 | Optional specific PID to apply this strategy |
+| `selectors` | []LabelSelector | Optional selectors to match pods for this strategy |
+
+### LabelSelector Structure
+| Field | Type | Description |
+|-------|------|-------------|
+| `key` | string | Label key to match |
+| `value` | string | Expected value of the label |
+
 ## Development and Extension
 
 ### Suggested New Features
@@ -211,6 +324,52 @@ curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.pods[] | {pod_uid: 
 - Includes middleware for CORS and logging
 - Structured error handling and response format
 - Timestamps use RFC3339 format
+- Kubernetes client integration with caching
+- Support for both in-cluster and out-of-cluster operation
+
+## Kubernetes 整合
+
+此 API 伺服器可以與 Kubernetes 整合，以獲取真實的 Pod 標籤資訊。它支援兩種運行模式：
+
+### 在 Kubernetes 集群內運行
+
+當在 Kubernetes 集群內部署時，API 伺服器會自動使用 ServiceAccount 連接到 Kubernetes API。完整的部署清單可在 `k8s/deployment.yaml` 中找到，其中包含：
+
+- 具備必要權限的 ServiceAccount
+- 具有健康檢查的 Deployment
+- 用於公開 API 的 Service
+
+部署命令：
+```bash
+kubectl apply -f k8s/deployment.yaml
+```
+
+### 在集群外運行
+
+當在 Kubernetes 集群外運行時，API 伺服器會嘗試使用 kubeconfig 文件連接到 Kubernetes API。預設情況下，它會使用 `~/.kube/config` 路徑，您也可以通過設置 `KUBECONFIG` 環境變數或使用 `--kubeconfig` 參數來指定不同的路徑：
+
+```bash
+export KUBECONFIG=/path/to/your/kubeconfig
+go run main.go
+
+# 或者
+go run main.go --kubeconfig=/path/to/your/kubeconfig
+```
+
+### 實時 Pod 標籤更新
+
+API 伺服器會定期刷新其 Pod 標籤緩存，以確保即使在 Pod 標籤變更時，調度策略也能正確應用。
+
+### 降級到模擬數據
+
+如果無法連接到 Kubernetes API，系統會自動降級使用模擬數據。這對於開發和測試環境很有用。
+
+### Docker 映像建立
+
+要建立 Docker 映像：
+```bash
+docker build -t bss-metrics-api:latest .
+```
 
 ## License
 This project is open source.

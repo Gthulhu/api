@@ -8,5 +8,29 @@
   "logging": {
     "level": "info",
     "format": "text"
+  },
+  "strategies": {
+    "default": [
+      {
+        "priority": true,
+        "execution_time": 20000000,
+        "selectors": [
+          {
+            "key": "nf",
+            "value": "upf"
+          }
+        ]
+      },
+      {
+        "priority": true,
+        "execution_time": 20000000,
+        "selectors": [
+          {
+            "key": "app",
+            "value": "ueransim-macvlan"
+          }
+        ]
+      }
+    ]
   }
 }

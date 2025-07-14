@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -65,6 +66,41 @@ type PodPidResponse struct {
 	Timestamp string    `json:"timestamp"`
 	Pods      []PodInfo `json:"pods"`
 }
+
+// LabelSelector represents a key-value pair for pod label selection
+type LabelSelector struct {
+	Key   string `json:"key"`   // Label key
+	Value string `json:"value"` // Label value
+}
+
+// SchedulingStrategy represents a strategy for process scheduling
+type SchedulingStrategy struct {
+	Priority      bool            `json:"priority"`            // If true, set vtime to minimum vtime
+	ExecutionTime uint64          `json:"execution_time"`      // Time slice for this process in nanoseconds
+	PID           int             `json:"pid,omitempty"`       // Process ID to apply this strategy to
+	Selectors     []LabelSelector `json:"selectors,omitempty"` // Label selectors to match pods
+}
+
+// SchedulingStrategiesResponse represents the response structure for scheduling strategies
+type SchedulingStrategiesResponse struct {
+	Success    bool                 `json:"success"`
+	Message    string               `json:"message"`
+	Timestamp  string               `json:"timestamp"`
+	Scheduling []SchedulingStrategy `json:"scheduling"`
+}
+
+// StrategyRequest represents the request structure for setting scheduling strategies
+type StrategyRequest struct {
+	Strategies []SchedulingStrategy `json:"strategies"`
+}
+
+// 全局變數存儲策略配置
+var (
+	// 使用互斥鎖保護策略列表
+	strategiesMutex sync.RWMutex
+	// 存儲用戶提交的策略
+	userStrategies []SchedulingStrategy
+)
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
 func getPodInfoFromCgroup(cgroupPath string) (string, string, string, error) {
@@ -202,10 +238,12 @@ func PodPidHandler(w http.ResponseWriter, r *http.Request) {
 	// Only accept GET requests
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
 			Success: false,
 			Error:   "Only GET method is allowed",
-		})
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
 		return
 	}
 
@@ -213,10 +251,12 @@ func PodPidHandler(w http.ResponseWriter, r *http.Request) {
 	pods, err := getPodPidMapping()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
 			Success: false,
 			Error:   "Failed to get pod-pid mappings: " + err.Error(),
-		})
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
 		return
 	}
 
@@ -232,7 +272,9 @@ func PodPidHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
 }
 
 // MetricsHandler handles incoming metrics data
@@ -243,10 +285,12 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	// Only accept POST requests
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
 			Success: false,
 			Error:   "Only POST method is allowed",
-		})
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
 		return
 	}
 
@@ -255,10 +299,12 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	decoder := json.NewDecoder(r.Body)
 	if err := decoder.Decode(&bssData); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(ErrorResponse{
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
 			Success: false,
 			Error:   "Invalid JSON format: " + err.Error(),
-		})
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
 		return
 	}
 
@@ -286,7 +332,9 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
 }
 
 // HealthHandler provides a health check endpoint
@@ -300,7 +348,227 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
+// GetSchedulingStrategiesHandler provides scheduling strategies for Gthulhu
+func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Only accept GET requests
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Only GET method is allowed",
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// In a production environment, these strategies would come from a database or config file
+	// 從用戶提交的策略和默認策略中獲取配置
+	var configuredStrategies []SchedulingStrategy
+
+	// 獲取用戶提交的策略
+	strategiesMutex.RLock()
+	if len(userStrategies) > 0 {
+		configuredStrategies = append(configuredStrategies, userStrategies...)
+	} else {
+		// 如果沒有用戶提交的策略，使用默認策略
+		configuredStrategies = []SchedulingStrategy{
+			{
+				Priority:      true,
+				ExecutionTime: 20000000, // 20ms
+				Selectors: []LabelSelector{
+					{
+						Key:   "nf",
+						Value: "upf",
+					},
+				},
+			},
+			{
+				Priority:      false,
+				ExecutionTime: 10000000, // 10ms
+				Selectors: []LabelSelector{
+					{
+						Key:   "tier",
+						Value: "control-plane",
+					},
+				},
+			},
+		}
+	}
+	strategiesMutex.RUnlock()
+
+	// Process the strategies and expand them for specific PIDs
+	var finalStrategies []SchedulingStrategy
+
+	for _, strategy := range configuredStrategies {
+		if len(strategy.Selectors) > 0 {
+			// Find PIDs that match the label selectors
+			matchedPIDs, err := findPIDsByLabelSelectors(strategy.Selectors)
+			if err != nil {
+				log.Printf("Error finding PIDs for selectors: %v", err)
+				continue
+			}
+
+			// Create a specific strategy for each matched PID
+			for _, pid := range matchedPIDs {
+				finalStrategies = append(finalStrategies, SchedulingStrategy{
+					Priority:      strategy.Priority,
+					ExecutionTime: strategy.ExecutionTime,
+					PID:           pid,
+				})
+			}
+		} else if strategy.PID != 0 {
+			// If there are no selectors but a specific PID is provided
+			finalStrategies = append(finalStrategies, strategy)
+		}
+	}
+
+	// Log the request
+	log.Printf("Scheduling strategies requested by Gthulhu, generated %d strategies", len(finalStrategies))
+
+	// Send success response
+	response := SchedulingStrategiesResponse{
+		Success:    true,
+		Message:    "Scheduling strategies retrieved successfully",
+		Timestamp:  time.Now().UTC().Format(time.RFC3339),
+		Scheduling: finalStrategies,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
+// SaveStrategiesHandler handles requests to save new scheduling strategies
+func SaveStrategiesHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Only accept POST requests
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Only POST method is allowed",
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// Parse JSON body
+	var request StrategyRequest
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Invalid JSON format: " + err.Error(),
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// Validate strategies
+	if len(request.Strategies) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "No strategies provided",
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// 保存用戶提交的策略
+	strategiesMutex.Lock()
+	userStrategies = request.Strategies
+	strategiesMutex.Unlock()
+
+	// Log received strategies
+	log.Printf("Received %d new scheduling strategies", len(request.Strategies))
+	for i, strategy := range request.Strategies {
+		log.Printf("Strategy %d: Priority=%v, ExecutionTime=%d", i+1, strategy.Priority, strategy.ExecutionTime)
+		if len(strategy.Selectors) > 0 {
+			for j, selector := range strategy.Selectors {
+				log.Printf("  Selector %d: %s=%s", j+1, selector.Key, selector.Value)
+			}
+		}
+		if strategy.PID != 0 {
+			log.Printf("  PID: %d", strategy.PID)
+		}
+	}
+
+	// Send success response
+	response := MetricsResponse{
+		Success:   true,
+		Message:   "Scheduling strategies saved successfully",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
+// 定義全局命令行選項
+var cmdOptions CommandLineOptions
+
+// getPodLabels 獲取 Pod 的標籤
+func getPodLabels(podUID string) (map[string]string, error) {
+	// 使用 Kubernetes API 獲取 Pod 標籤
+	return getKubernetesPodLabels(podUID, cmdOptions)
+}
+
+// findPIDsByLabelSelectors 根據標籤選擇器查找匹配的 PID
+func findPIDsByLabelSelectors(selectors []LabelSelector) ([]int, error) {
+	var matchedPIDs []int
+
+	// 獲取所有 Pod 和 PID 映射
+	pods, err := getPodPidMapping()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod-pid mappings: %v", err)
+	}
+
+	// 遍歷所有 Pod
+	for _, pod := range pods {
+		// 獲取 Pod 標籤
+		labels, err := getPodLabels(pod.PodUID)
+		if err != nil {
+			log.Printf("Warning: Failed to get labels for pod %s: %v", pod.PodUID, err)
+			continue
+		}
+		log.Printf("Pod %s labels: %v", pod.PodUID, labels)
+
+		// 檢查是否匹配所有選擇器
+		matches := true
+		for _, selector := range selectors {
+			value, exists := labels[selector.Key]
+			if !exists || value != selector.Value {
+				matches = false
+				break
+			}
+		}
+
+		// 如果匹配，添加所有進程 PID
+		if matches {
+			for _, process := range pod.Processes {
+				matchedPIDs = append(matchedPIDs, process.PID)
+			}
+		}
+	}
+
+	return matchedPIDs, nil
 }
 
 // CORS middleware
@@ -330,6 +598,37 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	// Parse command line options
+	cmdOptions = ParseCommandLineOptions()
+	PrintCommandLineOptions(cmdOptions)
+
+	// Initialize Kubernetes client
+	if err := initKubernetesClient(cmdOptions); err != nil {
+		log.Printf("Warning: Failed to initialize Kubernetes client: %v", err)
+		log.Printf("Pod label information will be based on mock data")
+	}
+
+	// Load configuration
+	config, err := LoadConfig(cmdOptions.ConfigPath)
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// If port is specified in command line, override the port in config file
+	port := config.Server.Port
+	if cmdOptions.Port != "" {
+		port = cmdOptions.Port
+		log.Printf("Using port from command line: %s", port)
+	}
+
+	// 初始化默認策略
+	strategiesMutex.Lock()
+	if len(config.Strategies.Default) > 0 {
+		userStrategies = config.Strategies.Default
+		log.Printf("Loaded %d default strategies from config", len(userStrategies))
+	}
+	strategiesMutex.Unlock()
+
 	// Create router
 	r := mux.NewRouter()
 
@@ -340,33 +639,39 @@ func main() {
 	// Define routes
 	r.HandleFunc("/api/v1/metrics", MetricsHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/api/v1/pods/pids", PodPidHandler).Methods("GET", "OPTIONS")
+	r.HandleFunc("/api/v1/scheduling/strategies", GetSchedulingStrategiesHandler).Methods("GET", "OPTIONS")
+	r.HandleFunc("/api/v1/scheduling/strategies", SaveStrategiesHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/health", HealthHandler).Methods("GET")
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		response := map[string]string{
 			"message":   "BSS Metrics API Server",
 			"version":   "1.0.0",
-			"endpoints": "/api/v1/metrics (POST), /api/v1/pods/pids (GET), /health (GET)",
+			"endpoints": "/api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET)",
 		}
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
 	}).Methods("GET")
 
 	// Server configuration
-	port := ":8080"
-	log.Printf("Starting BSS Metrics API Server on port %s", port)
+	serverPort := port
+	log.Printf("Starting BSS Metrics API Server on port %s", serverPort)
 	log.Printf("Endpoints:")
-	log.Printf("  POST /api/v1/metrics   - Submit metrics data")
-	log.Printf("  GET  /api/v1/pods/pids - Get pod-PID mappings")
-	log.Printf("  GET  /health           - Health check")
-	log.Printf("  GET  /                 - API information")
+	log.Printf("  POST /api/v1/metrics                - Submit metrics data")
+	log.Printf("  GET  /api/v1/pods/pids              - Get pod-PID mappings")
+	log.Printf("  GET  /api/v1/scheduling/strategies  - Get scheduling strategies")
+	log.Printf("  POST /api/v1/scheduling/strategies  - Save scheduling strategies")
+	log.Printf("  GET  /health                        - Health check")
+	log.Printf("  GET  /                              - API information")
 
 	// Start server
 	srv := &http.Server{
 		Handler:      r,
-		Addr:         port,
-		WriteTimeout: 15 * time.Second,
-		ReadTimeout:  15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:         serverPort,
+		WriteTimeout: time.Duration(config.Server.WriteTimeout) * time.Second,
+		ReadTimeout:  time.Duration(config.Server.ReadTimeout) * time.Second,
+		IdleTimeout:  time.Duration(config.Server.IdleTimeout) * time.Second,
 	}
 
 	log.Fatal(srv.ListenAndServe())

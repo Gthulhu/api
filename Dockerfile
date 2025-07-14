@@ -19,14 +19,18 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main .
 # Final stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates for HTTPS and bash for scripts
+RUN apk --no-cache add ca-certificates bash curl
 
 # Set working directory
-WORKDIR /root/
+WORKDIR /app/
 
 # Copy the binary from builder stage
 COPY --from=builder /app/main .
+COPY --from=builder /app/config.json .
+
+# Create directory for Kubernetes config
+RUN mkdir -p /app/.kube
 
 # Expose port
 EXPOSE 8080
@@ -34,5 +38,5 @@ EXPOSE 8080
 # Set environment variables
 ENV GIN_MODE=release
 
-# Run the application
-CMD ["./main"]
+# Run the application with in-cluster mode by default
+CMD ["./main", "--in-cluster=true"]

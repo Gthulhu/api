@@ -8,8 +8,9 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server  ServerConfig  `json:"server"`
-	Logging LoggingConfig `json:"logging"`
+	Server     ServerConfig     `json:"server"`
+	Logging    LoggingConfig    `json:"logging"`
+	Strategies StrategiesConfig `json:"strategies"`
 }
 
 // ServerConfig represents server-specific configuration
@@ -26,6 +27,11 @@ type LoggingConfig struct {
 	Format string `json:"format"`
 }
 
+// StrategiesConfig represents scheduling strategies configuration
+type StrategiesConfig struct {
+	Default []SchedulingStrategy `json:"default"`
+}
+
 // LoadConfig loads configuration from file or returns default config
 func LoadConfig(filename string) (*Config, error) {
 	// Default configuration
@@ -39,6 +45,20 @@ func LoadConfig(filename string) (*Config, error) {
 		Logging: LoggingConfig{
 			Level:  "info",
 			Format: "text",
+		},
+		Strategies: StrategiesConfig{
+			Default: []SchedulingStrategy{
+				{
+					Priority:      true,
+					ExecutionTime: 20000000,
+					Selectors: []LabelSelector{
+						{
+							Key:   "nf",
+							Value: "upf",
+						},
+					},
+				},
+			},
 		},
 	}
 
