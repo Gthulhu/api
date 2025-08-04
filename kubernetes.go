@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -26,7 +27,7 @@ var (
 	ErrPodNotFound       = errors.New("pod not found in any namespace")
 
 	// Define Pod label cache to reduce API call frequency
-	podLabelCache     = make(map[string]map[string]string)
+	podLabelCache     = make(map[string]apiv1.Pod)
 	podLabelCacheMu   sync.RWMutex
 	podLabelCacheTTL  = 30 * time.Second
 	podLabelCacheTime = make(map[string]time.Time)
@@ -108,7 +109,7 @@ func verifyKubernetesConnection() {
 }
 
 // Get Pod labels from Kubernetes API, supports caching
-func getKubernetesPodLabels(podUID string, options CommandLineOptions) (map[string]string, error) {
+func getKubernetesPod(podUID string, options CommandLineOptions) (apiv1.Pod, error) {
 	// Check cache
 	podLabelCacheMu.RLock()
 	cachedLabels, exists := podLabelCache[podUID]
@@ -131,15 +132,11 @@ func getKubernetesPodLabels(podUID string, options CommandLineOptions) (map[stri
 		if err := initKubernetesClient(options); err != nil {
 			// Use mock data if initialization fails
 			log.Printf("Warning: Kubernetes client initialization failed: %v, using mock data", err)
-			mockData, mockErr := getMockPodLabels(podUID)
-			if mockErr == nil {
-				// Even mock data is stored in the cache
-				podLabelCacheMu.Lock()
-				podLabelCache[podUID] = mockData
-				podLabelCacheTime[podUID] = time.Now()
-				podLabelCacheMu.Unlock()
-			}
-			return mockData, nil
+			podLabelCacheMu.Lock()
+			podLabelCache[podUID] = apiv1.Pod{}
+			podLabelCacheTime[podUID] = time.Now()
+			podLabelCacheMu.Unlock()
+			return apiv1.Pod{}, nil
 		}
 
 		kubeClientMu.RLock()
@@ -153,9 +150,8 @@ func getKubernetesPodLabels(podUID string, options CommandLineOptions) (map[stri
 	// Get all namespaces
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
-		log.Printf("Error listing namespaces: %v, using mock data", err)
-		mockData, _ := getMockPodLabels(podUID)
-		return mockData, fmt.Errorf("%w: %v", ErrNamespaceAccess, err)
+		log.Printf("Error listing namespaces: %v", err)
+		return apiv1.Pod{}, fmt.Errorf("%w: %v", ErrNamespaceAccess, err)
 	}
 
 	// Find the Pod that matches the UID in all namespaces
@@ -171,46 +167,15 @@ func getKubernetesPodLabels(podUID string, options CommandLineOptions) (map[stri
 			if string(pod.UID) == podUID {
 				// Update cache
 				podLabelCacheMu.Lock()
-				podLabelCache[podUID] = pod.Labels
+				podLabelCache[podUID] = pod
 				podLabelCacheTime[podUID] = time.Now()
 				podLabelCacheMu.Unlock()
 
 				log.Printf("Found and cached labels for pod %s in namespace %s", podUID, ns.Name)
-				return pod.Labels, nil
+				return pod, nil
 			}
 		}
 	}
 
-	// If no matching Pod is found, use mock data
-	log.Printf("Pod with UID %s not found, using mock data", podUID)
-	mockData, _ := getMockPodLabels(podUID)
-	return mockData, ErrPodNotFound
-}
-
-// Get mock Pod label data (as a fallback solution)
-func getMockPodLabels(podUID string) (map[string]string, error) {
-	// Mock data - only used when Kubernetes API cannot be accessed
-	mockLabels := map[string]map[string]string{
-		"65979e01-4cb1-4d08-9dba-45530253ff00": {
-			"app":  "monitoring",
-			"nf":   "upf",
-			"tier": "data-plane",
-		},
-		"75979e01-4cb1-4d08-9dba-45530253gg00": {
-			"app":  "networking",
-			"nf":   "smf",
-			"tier": "control-plane",
-		},
-		"85979e01-4cb1-4d08-9dba-45530253hh00": {
-			"app":  "database",
-			"tier": "storage",
-		},
-	}
-
-	if labels, exists := mockLabels[podUID]; exists {
-		return labels, nil
-	}
-
-	// If no mock data is found, return an empty map
-	return map[string]string{}, nil
+	return apiv1.Pod{}, ErrPodNotFound
 }

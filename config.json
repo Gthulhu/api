@@ -13,23 +13,14 @@
     "default": [
       {
         "priority": true,
-        "execution_time": 20000000,
-        "selectors": [
-          {
-            "key": "nf",
-            "value": "upf"
-          }
-        ]
-      },
-      {
-        "priority": true,
-        "execution_time": 20000000,
+        "execution_time": 50000,
         "selectors": [
           {
             "key": "app",
             "value": "ueransim-macvlan"
           }
-        ]
+        ],
+        "command_regex": "nr-gnb|ping"
       }
     ]
   }

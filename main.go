@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -75,10 +76,11 @@ type LabelSelector struct {
 
 // SchedulingStrategy represents a strategy for process scheduling
 type SchedulingStrategy struct {
-	Priority      bool            `json:"priority"`            // If true, set vtime to minimum vtime
-	ExecutionTime uint64          `json:"execution_time"`      // Time slice for this process in nanoseconds
-	PID           int             `json:"pid,omitempty"`       // Process ID to apply this strategy to
-	Selectors     []LabelSelector `json:"selectors,omitempty"` // Label selectors to match pods
+	Priority      bool            `json:"priority"`                // If true, set vtime to minimum vtime
+	ExecutionTime uint64          `json:"execution_time"`          // Time slice for this process in nanoseconds
+	PID           int             `json:"pid,omitempty"`           // Process ID to apply this strategy to
+	Selectors     []LabelSelector `json:"selectors,omitempty"`     // Label selectors to match pods
+	CommandRegex  string          `json:"command_regex,omitempty"` // Regex to match process command
 }
 
 // SchedulingStrategiesResponse represents the response structure for scheduling strategies
@@ -94,12 +96,9 @@ type StrategyRequest struct {
 	Strategies []SchedulingStrategy `json:"strategies"`
 }
 
-// 全局變數存儲策略配置
 var (
-	// 使用互斥鎖保護策略列表
 	strategiesMutex sync.RWMutex
-	// 存儲用戶提交的策略
-	userStrategies []SchedulingStrategy
+	userStrategies  []SchedulingStrategy
 )
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
@@ -370,37 +369,11 @@ func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// In a production environment, these strategies would come from a database or config file
-	// 從用戶提交的策略和默認策略中獲取配置
 	var configuredStrategies []SchedulingStrategy
 
-	// 獲取用戶提交的策略
 	strategiesMutex.RLock()
 	if len(userStrategies) > 0 {
 		configuredStrategies = append(configuredStrategies, userStrategies...)
-	} else {
-		// 如果沒有用戶提交的策略，使用默認策略
-		configuredStrategies = []SchedulingStrategy{
-			{
-				Priority:      true,
-				ExecutionTime: 20000000, // 20ms
-				Selectors: []LabelSelector{
-					{
-						Key:   "nf",
-						Value: "upf",
-					},
-				},
-			},
-			{
-				Priority:      false,
-				ExecutionTime: 10000000, // 10ms
-				Selectors: []LabelSelector{
-					{
-						Key:   "tier",
-						Value: "control-plane",
-					},
-				},
-			},
-		}
 	}
 	strategiesMutex.RUnlock()
 
@@ -410,7 +383,7 @@ func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	for _, strategy := range configuredStrategies {
 		if len(strategy.Selectors) > 0 {
 			// Find PIDs that match the label selectors
-			matchedPIDs, err := findPIDsByLabelSelectors(strategy.Selectors)
+			matchedPIDs, err := findPIDsByStrategy(strategy)
 			if err != nil {
 				log.Printf("Error finding PIDs for selectors: %v", err)
 				continue
@@ -489,7 +462,6 @@ func SaveStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 保存用戶提交的策略
 	strategiesMutex.Lock()
 	userStrategies = request.Strategies
 	strategiesMutex.Unlock()
@@ -521,38 +493,34 @@ func SaveStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// 定義全局命令行選項
 var cmdOptions CommandLineOptions
 
-// getPodLabels 獲取 Pod 的標籤
 func getPodLabels(podUID string) (map[string]string, error) {
-	// 使用 Kubernetes API 獲取 Pod 標籤
-	return getKubernetesPodLabels(podUID, cmdOptions)
+	pod, err := getKubernetesPod(podUID, cmdOptions)
+	if err != nil {
+		return nil, err
+	}
+	return pod.Labels, nil
 }
 
-// findPIDsByLabelSelectors 根據標籤選擇器查找匹配的 PID
-func findPIDsByLabelSelectors(selectors []LabelSelector) ([]int, error) {
+func findPIDsByStrategy(strategy SchedulingStrategy) ([]int, error) {
 	var matchedPIDs []int
 
-	// 獲取所有 Pod 和 PID 映射
 	pods, err := getPodPidMapping()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod-pid mappings: %v", err)
 	}
 
-	// 遍歷所有 Pod
 	for _, pod := range pods {
-		// 獲取 Pod 標籤
-		labels, err := getPodLabels(pod.PodUID)
+		podSpec, err := getKubernetesPod(pod.PodUID, cmdOptions)
 		if err != nil {
-			log.Printf("Warning: Failed to get labels for pod %s: %v", pod.PodUID, err)
-			continue
+			return nil, err
 		}
+		labels := podSpec.Labels
 		log.Printf("Pod %s labels: %v", pod.PodUID, labels)
 
-		// 檢查是否匹配所有選擇器
 		matches := true
-		for _, selector := range selectors {
+		for _, selector := range strategy.Selectors {
 			value, exists := labels[selector.Key]
 			if !exists || value != selector.Value {
 				matches = false
@@ -560,10 +528,20 @@ func findPIDsByLabelSelectors(selectors []LabelSelector) ([]int, error) {
 			}
 		}
 
-		// 如果匹配，添加所有進程 PID
 		if matches {
 			for _, process := range pod.Processes {
-				matchedPIDs = append(matchedPIDs, process.PID)
+				if strategy.CommandRegex == "" {
+					// Default to match any command if no regex is provided
+					strategy.CommandRegex = ".*"
+				}
+				regex, err := regexp.Compile(strategy.CommandRegex)
+				if err != nil {
+					log.Printf("Error compiling regex: %v", err)
+					continue
+				}
+				if regex.MatchString(process.Command) {
+					matchedPIDs = append(matchedPIDs, process.PID)
+				}
 			}
 		}
 	}
@@ -621,7 +599,6 @@ func main() {
 		log.Printf("Using port from command line: %s", port)
 	}
 
-	// 初始化默認策略
 	strategiesMutex.Lock()
 	if len(config.Strategies.Default) > 0 {
 		userStrategies = config.Strategies.Default
