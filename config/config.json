@@ -9,6 +9,10 @@
     "level": "info",
     "format": "text"
   },
+  "jwt": {
+    "private_key_path": "./config/jwt_private_key.key",
+    "token_duration": 24
+  },
   "strategies": {
     "default": [
       {

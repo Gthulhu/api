@@ -11,6 +11,7 @@ type Config struct {
 	Server     ServerConfig     `json:"server"`
 	Logging    LoggingConfig    `json:"logging"`
 	Strategies StrategiesConfig `json:"strategies"`
+	JWT        JWTConfig        `json:"jwt"`
 }
 
 // ServerConfig represents server-specific configuration
@@ -30,6 +31,12 @@ type LoggingConfig struct {
 // StrategiesConfig represents scheduling strategies configuration
 type StrategiesConfig struct {
 	Default []SchedulingStrategy `json:"default"`
+}
+
+// JWTConfig represents JWT authentication configuration
+type JWTConfig struct {
+	PrivateKeyPath string `json:"private_key_path"`
+	TokenDuration  int    `json:"token_duration"` // Token duration in hours
 }
 
 // LoadConfig loads configuration from file or returns default config
@@ -59,6 +66,10 @@ func LoadConfig(filename string) (*Config, error) {
 					},
 				},
 			},
+		},
+		JWT: JWTConfig{
+			PrivateKeyPath: "/etc/bss-api/private_key.pem",
+			TokenDuration:  24, // 24 hours
 		},
 	}
 

@@ -2,7 +2,11 @@ package main
 
 import (
 	"bufio"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net/http"
@@ -13,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 )
 
@@ -96,9 +101,30 @@ type StrategyRequest struct {
 	Strategies []SchedulingStrategy `json:"strategies"`
 }
 
+// TokenRequest represents the request structure for JWT token generation
+type TokenRequest struct {
+	PublicKey string `json:"public_key"` // PEM encoded public key
+}
+
+// TokenResponse represents the response structure for JWT token generation
+type TokenResponse struct {
+	Success   bool   `json:"success"`
+	Message   string `json:"message"`
+	Timestamp string `json:"timestamp"`
+	Token     string `json:"token,omitempty"`
+}
+
+// Claims represents JWT token claims
+type Claims struct {
+	ClientID string `json:"client_id"`
+	jwt.RegisteredClaims
+}
+
 var (
 	strategiesMutex sync.RWMutex
 	userStrategies  []SchedulingStrategy
+	jwtPrivateKey   *rsa.PrivateKey
+	jwtConfig       JWTConfig
 )
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
@@ -549,6 +575,284 @@ func findPIDsByStrategy(strategy SchedulingStrategy) ([]int, error) {
 	return matchedPIDs, nil
 }
 
+// loadPrivateKey loads RSA private key from PEM file
+func loadPrivateKey(keyPath string) (*rsa.PrivateKey, error) {
+	keyData, err := os.ReadFile(keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read private key file: %v", err)
+	}
+
+	block, _ := pem.Decode(keyData)
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
+	}
+
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		// Try PKCS8 format
+		keyInterface, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse private key: %v", err)
+		}
+		var ok bool
+		key, ok = keyInterface.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("private key is not RSA")
+		}
+	}
+
+	return key, nil
+}
+
+// generatePrivateKey generates a new RSA private key and saves it to file
+func generatePrivateKey(keyPath string) (*rsa.PrivateKey, error) {
+	// Generate RSA private key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate private key: %v", err)
+	}
+
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(strings.TrimSuffix(keyPath, "/private_key.pem"), 0755); err != nil {
+		log.Printf("Warning: failed to create directory for private key: %v", err)
+	}
+
+	// Save private key to file
+	keyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	keyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: keyBytes,
+	})
+
+	if err := os.WriteFile(keyPath, keyPEM, 0600); err != nil {
+		log.Printf("Warning: failed to save private key to file: %v", err)
+	} else {
+		log.Printf("Generated and saved new private key to %s", keyPath)
+	}
+
+	return privateKey, nil
+}
+
+// initJWT initializes JWT configuration and private key
+func initJWT(config JWTConfig) error {
+	jwtConfig = config
+
+	// Try to load existing private key
+	key, err := loadPrivateKey(config.PrivateKeyPath)
+	if err != nil {
+		log.Printf("Failed to load private key from %s: %v", config.PrivateKeyPath, err)
+		log.Printf("Generating new private key...")
+
+		// Generate new private key
+		key, err = generatePrivateKey(config.PrivateKeyPath)
+		if err != nil {
+			return fmt.Errorf("failed to generate private key: %v", err)
+		}
+	} else {
+		log.Printf("Loaded private key from %s", config.PrivateKeyPath)
+	}
+
+	jwtPrivateKey = key
+	return nil
+}
+
+// verifyPublicKey verifies if the provided public key matches our private key
+func verifyPublicKey(publicKeyPEM string) error {
+	block, _ := pem.Decode([]byte(publicKeyPEM))
+	if block == nil {
+		return fmt.Errorf("failed to decode PEM block containing public key")
+	}
+
+	publicKey, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return fmt.Errorf("failed to parse public key: %v", err)
+	}
+
+	rsaPublicKey, ok := publicKey.(*rsa.PublicKey)
+	if !ok {
+		return fmt.Errorf("public key is not RSA")
+	}
+
+	// Compare public key with our private key's public key
+	if !rsaPublicKey.Equal(&jwtPrivateKey.PublicKey) {
+		return fmt.Errorf("public key does not match server's private key")
+	}
+
+	return nil
+}
+
+// generateJWT generates a JWT token for authenticated client
+func generateJWT(clientID string) (string, error) {
+	claims := Claims{
+		ClientID: clientID,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(jwtConfig.TokenDuration) * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			NotBefore: jwt.NewNumericDate(time.Now()),
+			Issuer:    "bss-api-server",
+			Subject:   clientID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	return token.SignedString(jwtPrivateKey)
+}
+
+// validateJWT validates a JWT token and returns the claims
+func validateJWT(tokenString string) (*Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return &jwtPrivateKey.PublicKey, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// TokenHandler handles JWT token generation requests
+func TokenHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Only accept POST requests
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Only POST method is allowed",
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// Parse JSON body
+	var request TokenRequest
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&request); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Invalid JSON format: " + err.Error(),
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// Verify public key
+	if err := verifyPublicKey(request.PublicKey); err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Public key verification failed: " + err.Error(),
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	// Generate client ID from public key hash (simplified)
+	clientID := fmt.Sprintf("client_%d", time.Now().Unix())
+
+	// Generate JWT token
+	token, err := generateJWT(clientID)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Failed to generate token: " + err.Error(),
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	log.Printf("Generated JWT token for client %s", clientID)
+
+	// Send success response with token
+	response := TokenResponse{
+		Success:   true,
+		Message:   "Token generated successfully",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Token:     token,
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
+// jwtAuthMiddleware validates JWT token for protected endpoints
+func jwtAuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Skip auth for OPTIONS requests, health check, root endpoint, and token endpoint
+		if r.Method == "OPTIONS" ||
+			r.URL.Path == "/health" ||
+			r.URL.Path == "/" ||
+			r.URL.Path == "/api/v1/auth/token" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Extract token from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			if err := json.NewEncoder(w).Encode(ErrorResponse{
+				Success: false,
+				Error:   "Authorization header is required",
+			}); err != nil {
+				log.Printf("Error encoding response: %v", err)
+			}
+			return
+		}
+
+		// Check Bearer token format
+		const bearerSchema = "Bearer "
+		if !strings.HasPrefix(authHeader, bearerSchema) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			if err := json.NewEncoder(w).Encode(ErrorResponse{
+				Success: false,
+				Error:   "Authorization header must start with 'Bearer '",
+			}); err != nil {
+				log.Printf("Error encoding response: %v", err)
+			}
+			return
+		}
+
+		tokenString := authHeader[len(bearerSchema):]
+
+		// Validate JWT token
+		claims, err := validateJWT(tokenString)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			if err := json.NewEncoder(w).Encode(ErrorResponse{
+				Success: false,
+				Error:   "Invalid or expired token: " + err.Error(),
+			}); err != nil {
+				log.Printf("Error encoding response: %v", err)
+			}
+			return
+		}
+
+		log.Printf("Authenticated request from client: %s", claims.ClientID)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // CORS middleware
 func enableCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -592,6 +896,11 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// Initialize JWT
+	if err := initJWT(config.JWT); err != nil {
+		log.Fatalf("Failed to initialize JWT: %v", err)
+	}
+
 	// If port is specified in command line, override the port in config file
 	port := config.Server.Port
 	if cmdOptions.Port != "" {
@@ -612,8 +921,10 @@ func main() {
 	// Apply middleware
 	r.Use(loggingMiddleware)
 	r.Use(enableCORS)
+	r.Use(jwtAuthMiddleware) // Add JWT authentication middleware
 
 	// Define routes
+	r.HandleFunc("/api/v1/auth/token", TokenHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/api/v1/metrics", MetricsHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/api/v1/pods/pids", PodPidHandler).Methods("GET", "OPTIONS")
 	r.HandleFunc("/api/v1/scheduling/strategies", GetSchedulingStrategiesHandler).Methods("GET", "OPTIONS")
@@ -624,7 +935,7 @@ func main() {
 		response := map[string]string{
 			"message":   "BSS Metrics API Server",
 			"version":   "1.0.0",
-			"endpoints": "/api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET)",
+			"endpoints": "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET)",
 		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Printf("Error encoding response: %v", err)
@@ -635,12 +946,14 @@ func main() {
 	serverPort := port
 	log.Printf("Starting BSS Metrics API Server on port %s", serverPort)
 	log.Printf("Endpoints:")
+	log.Printf("  POST /api/v1/auth/token              - Generate JWT token")
 	log.Printf("  POST /api/v1/metrics                - Submit metrics data")
 	log.Printf("  GET  /api/v1/pods/pids              - Get pod-PID mappings")
 	log.Printf("  GET  /api/v1/scheduling/strategies  - Get scheduling strategies")
 	log.Printf("  POST /api/v1/scheduling/strategies  - Save scheduling strategies")
 	log.Printf("  GET  /health                        - Health check")
 	log.Printf("  GET  /                              - API information")
+	log.Printf("JWT Authentication: Enabled (Token duration: %d hours)", jwtConfig.TokenDuration)
 
 	// Start server
 	srv := &http.Server{
