@@ -2,6 +2,12 @@
 
 This is an API Server implemented in Golang for receiving and processing BSS (BPF Scheduler Subsystem) metrics data and providing system information.
 
+## DEMO
+
+Click the image below to see our DEMO on YouTube!
+
+[![IMAGE ALT TEXT HERE](./assets/preview.png)](https://www.youtube.com/watch?v=R4EmZ18P954)
+
 ## Features
 
 - Receive BSS metrics data sent by clients
