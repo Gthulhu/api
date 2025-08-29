@@ -13,14 +13,14 @@
     "default": [
       {
         "priority": true,
-        "execution_time": 50000,
+        "execution_time": 20000,
         "selectors": [
           {
             "key": "app",
             "value": "ueransim-macvlan"
           }
         ],
-        "command_regex": "nr-gnb|ping"
+        "command_regex": "nr-gnb|nr-ue|ping"
       }
     ]
   }
