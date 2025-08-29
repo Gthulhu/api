@@ -6,7 +6,7 @@ This is an API Server implemented in Golang for receiving and processing BSS (BP
 
 Click the image below to see our DEMO on YouTube!
 
-[![IMAGE ALT TEXT HERE](./assets/preview.png)](https://www.youtube.com/watch?v=R4EmZ18P954)
+[![IMAGE ALT TEXT HERE](https://github.com/Gthulhu/Gthulhu/blob/main/assets/preview.png?raw=true)](https://www.youtube.com/watch?v=R4EmZ18P954)
 
 ## Features
 
