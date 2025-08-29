@@ -1,6 +1,7 @@
 // Global variables
 let jwtToken = localStorage.getItem('jwtToken');
 let isAuthenticated = !!jwtToken;
+let strategyCounter = 0; // Counter for unique strategy IDs
 
 // Auto-refresh intervals
 let healthInterval = null;
@@ -13,13 +14,14 @@ const authText = document.getElementById('authText');
 const authBtn = document.getElementById('authBtn');
 const authModal = document.getElementById('authModal');
 const authForm = document.getElementById('authForm');
-const strategiesForm = document.getElementById('strategiesForm');
 
 // Initialize the app
 document.addEventListener('DOMContentLoaded', function() {
     updateAuthStatus();
     setupEventListeners();
     updateAuthRequiredButtons();
+    // Add initial strategy form
+    addStrategy();
 });
 
 // Update authentication status display
@@ -90,12 +92,6 @@ function setupEventListeners() {
     authForm.addEventListener('submit', async function(e) {
         e.preventDefault();
         await getJWTToken();
-    });
-
-    // Strategies form submission
-    strategiesForm.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        await saveStrategies();
     });
 }
 
@@ -229,44 +225,52 @@ async function getStrategies() {
     }
 }
 
-// Save scheduling strategies
-async function saveStrategies() {
+// Save scheduling strategies (updated for multiple strategies)
+async function saveAllStrategies() {
     try {
-        const formData = new FormData(strategiesForm);
+        const strategies = [];
+        const strategyItems = document.querySelectorAll('.strategy-item');
         
-        // Collect selectors
-        const selectors = [];
-        const selectorKeys = document.querySelectorAll('input[name="selectorKey"]');
-        const selectorValues = document.querySelectorAll('input[name="selectorValue"]');
-        
-        for (let i = 0; i < selectorKeys.length; i++) {
-            const key = selectorKeys[i].value.trim();
-            const value = selectorValues[i].value.trim();
-            if (key && value) {
-                selectors.push({ key, value });
+        for (const item of strategyItems) {
+            const strategy = {
+                priority: item.querySelector('input[name="priority"]')?.checked || false,
+                execution_time: parseInt(item.querySelector('input[name="executionTime"]')?.value) || 20000000
+            };
+
+            // Add PID if specified
+            const pid = item.querySelector('input[name="pid"]')?.value;
+            if (pid) {
+                strategy.pid = parseInt(pid);
             }
+
+            // Add command regex if specified
+            const commandRegex = item.querySelector('input[name="commandRegex"]')?.value;
+            if (commandRegex) {
+                strategy.command_regex = commandRegex;
+            }
+
+            // Collect selectors
+            const selectors = [];
+            const selectorItems = item.querySelectorAll('.selector');
+            
+            for (const selectorItem of selectorItems) {
+                const key = selectorItem.querySelector('input[name="selectorKey"]')?.value?.trim();
+                const value = selectorItem.querySelector('input[name="selectorValue"]')?.value?.trim();
+                if (key && value) {
+                    selectors.push({ key, value });
+                }
+            }
+            
+            strategy.selectors = selectors;
+            strategies.push(strategy);
         }
 
-        // Build strategy object
-        const strategy = {
-            priority: formData.get('priority') === 'on',
-            execution_time: parseInt(formData.get('executionTime')),
-            selectors: selectors
-        };
-
-        const pid = formData.get('pid');
-        if (pid) {
-            strategy.pid = parseInt(pid);
+        if (strategies.length === 0) {
+            showResult('strategiesResult', 'No strategies to save', 'info');
+            return;
         }
 
-        const commandRegex = formData.get('commandRegex');
-        if (commandRegex) {
-            strategy.command_regex = commandRegex;
-        }
-
-        const requestBody = {
-            strategies: [strategy]
-        };
+        const requestBody = { strategies };
 
         const response = await makeAuthenticatedRequest('/api/v1/scheduling/strategies', {
             method: 'POST',
@@ -276,14 +280,98 @@ async function saveStrategies() {
         const data = await response.json();
         
         if (data.success) {
-            showResult('strategiesResult', 'Strategy saved successfully: ' + JSON.stringify(data, null, 2), 'success');
-            strategiesForm.reset();
+            showResult('strategiesResult', `Successfully saved ${strategies.length} strategies: ` + JSON.stringify(data, null, 2), 'success');
         } else {
             showResult('strategiesResult', 'Save failed: ' + (data.error || data.message), 'error');
         }
     } catch (error) {
         showResult('strategiesResult', 'Request failed: ' + error.message, 'error');
     }
+}
+
+// Add a new strategy form
+function addStrategy() {
+    const container = document.getElementById('strategiesContainer');
+    const strategyId = `strategy-${++strategyCounter}`;
+    
+    const strategyDiv = document.createElement('div');
+    strategyDiv.className = 'strategy-item';
+    strategyDiv.id = strategyId;
+    
+    strategyDiv.innerHTML = `
+        <h4>
+            Strategy ${strategyCounter}
+            <button type="button" class="remove-strategy-btn" onclick="removeStrategy('${strategyId}')">Remove</button>
+        </h4>
+        <div class="strategy-form">
+            <div>
+                <label>
+                    <input type="checkbox" name="priority"> Priority
+                </label>
+            </div>
+            <div>
+                <label>Execution Time (nanoseconds):</label>
+                <input type="number" name="executionTime" value="20000000" required>
+            </div>
+            <div>
+                <label>PID (optional):</label>
+                <input type="number" name="pid" placeholder="Process ID">
+            </div>
+            <div>
+                <label>Command Regex (optional):</label>
+                <input type="text" name="commandRegex" placeholder="nr-gnb|ping">
+            </div>
+            <div class="selectors-container full-width">
+                <label>Label Selectors:</label>
+                <div class="selectors-list" id="selectors-${strategyId}">
+                    <div class="selector">
+                        <input type="text" name="selectorKey" placeholder="key">
+                        <input type="text" name="selectorValue" placeholder="value">
+                        <button type="button" onclick="removeSelector(this)">Remove</button>
+                    </div>
+                </div>
+                <button type="button" class="add-selector-btn" onclick="addSelectorToStrategy('${strategyId}')">Add Selector</button>
+            </div>
+        </div>
+    `;
+    
+    container.appendChild(strategyDiv);
+}
+
+// Remove a strategy
+function removeStrategy(strategyId) {
+    const strategyItem = document.getElementById(strategyId);
+    if (strategyItem) {
+        strategyItem.remove();
+    }
+    
+    // If no strategies left, add one
+    const container = document.getElementById('strategiesContainer');
+    if (container.children.length === 0) {
+        addStrategy();
+    }
+}
+
+// Clear all strategies and add a fresh one
+function clearAllStrategies() {
+    const container = document.getElementById('strategiesContainer');
+    container.innerHTML = '';
+    strategyCounter = 0;
+    addStrategy();
+    showResult('strategiesResult', 'All strategies cleared', 'info');
+}
+
+// Add selector to specific strategy
+function addSelectorToStrategy(strategyId) {
+    const selectorsContainer = document.getElementById(`selectors-${strategyId}`);
+    const selectorDiv = document.createElement('div');
+    selectorDiv.className = 'selector';
+    selectorDiv.innerHTML = `
+        <input type="text" name="selectorKey" placeholder="key">
+        <input type="text" name="selectorValue" placeholder="value">
+        <button type="button" onclick="removeSelector(this)">Remove</button>
+    `;
+    selectorsContainer.appendChild(selectorDiv);
 }
 
 // Get current metrics (replaces submitMetrics)
@@ -322,23 +410,24 @@ async function getMetrics() {
     }
 }
 
-// Add selector input
+// Add selector input (updated for multiple strategies)
 function addSelector() {
-    const selectorsDiv = document.getElementById('selectors');
-    const selectorDiv = document.createElement('div');
-    selectorDiv.className = 'selector';
-    selectorDiv.innerHTML = `
-        <input type="text" name="selectorKey" placeholder="key">
-        <input type="text" name="selectorValue" placeholder="value">
-        <button type="button" onclick="removeSelector(this)">Remove</button>
-    `;
-    selectorsDiv.appendChild(selectorDiv);
+    // This function is kept for backward compatibility
+    // but should use addSelectorToStrategy for new functionality
+    console.warn('addSelector() is deprecated, use addSelectorToStrategy() instead');
 }
 
 // Remove selector input
 function removeSelector(button) {
     const selectorDiv = button.parentElement;
+    const parentContainer = selectorDiv.parentElement;
     selectorDiv.remove();
+    
+    // Ensure at least one selector remains in each strategy
+    if (parentContainer.children.length === 0) {
+        const strategyId = parentContainer.id.replace('selectors-', '');
+        addSelectorToStrategy(strategyId);
+    }
 }
 
 // Show result in specified element

@@ -65,33 +65,17 @@
             <button onclick="getStrategies()" class="api-btn auth-required">Get Scheduling Strategies</button>
             <pre id="strategiesResult" class="result"></pre>
             
-            <h3>Set New Scheduling Strategy</h3>
-            <form id="strategiesForm">
-                <div class="strategy-input">
-                    <label>Priority:</label>
-                    <input type="checkbox" id="priority" name="priority">
-                    
-                    <label>Execution Time (nanoseconds):</label>
-                    <input type="number" id="executionTime" name="executionTime" value="20000000" required>
-                    
-                    <label>PID (optional):</label>
-                    <input type="number" id="pid" name="pid">
-                    
-                    <label>Command Regex (optional):</label>
-                    <input type="text" id="commandRegex" name="commandRegex" placeholder="nr-gnb|ping">
-                    
-                    <h4>Label Selectors</h4>
-                    <div id="selectors">
-                        <div class="selector">
-                            <input type="text" name="selectorKey" placeholder="key">
-                            <input type="text" name="selectorValue" placeholder="value">
-                            <button type="button" onclick="removeSelector(this)">Remove</button>
-                        </div>
-                    </div>
-                    <button type="button" onclick="addSelector()">Add Selector</button>
+            <h3>Set New Scheduling Strategies</h3>
+            <div class="strategies-manager">
+                <div id="strategiesContainer">
+                    <!-- Strategy templates will be added here -->
                 </div>
-                <button type="submit" class="auth-required">Save Strategy</button>
-            </form>
+                <div class="strategy-controls">
+                    <button type="button" onclick="addStrategy()" class="add-strategy-btn">Add Strategy</button>
+                    <button type="button" onclick="saveAllStrategies()" class="api-btn auth-required">Save All Strategies</button>
+                    <button type="button" onclick="clearAllStrategies()" class="clear-btn">Clear All</button>
+                </div>
+            </div>
         </div>
 
         <div class="api-section">
