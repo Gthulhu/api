@@ -1,0 +1,427 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+header h1 {
+    font-size: 1.8rem;
+    font-weight: 300;
+}
+
+.auth-status {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+#authText {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+#authBtn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+#authBtn:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+main {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.api-section {
+    background: white;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.api-section h2 {
+    color: #667eea;
+    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    font-weight: 400;
+}
+
+.api-section h3 {
+    color: #555;
+    margin: 1.5rem 0 1rem 0;
+    font-size: 1.2rem;
+}
+
+.api-section h4 {
+    color: #666;
+    margin: 1rem 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.api-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-bottom: 1rem;
+}
+
+.api-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.api-btn:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.result {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-top: 1rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    white-space: pre-wrap;
+    max-height: 400px;
+    overflow-y: auto;
+    color: #495057;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 2rem;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 500px;
+    position: relative;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute;
+    right: 15px;
+    top: 10px;
+}
+
+.close:hover {
+    color: #000;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+label {
+    font-weight: 500;
+    color: #555;
+}
+
+input, textarea, select {
+    padding: 0.75rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.3s;
+}
+
+input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+}
+
+textarea {
+    min-height: 150px;
+    resize: vertical;
+    font-family: 'Courier New', monospace;
+}
+
+button[type="submit"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: transform 0.2s;
+}
+
+button[type="submit"]:hover {
+    transform: translateY(-2px);
+}
+
+button[type="submit"]:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.strategy-input {
+    border: 1px solid #e9ecef;
+    padding: 1rem;
+    border-radius: 4px;
+    background: #f8f9fa;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1rem;
+    align-items: center;
+}
+
+.selector {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    align-items: center;
+}
+
+.selector input {
+    flex: 1;
+}
+
+.selector button {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.selector button:hover {
+    background: #c82333;
+}
+
+button[type="button"] {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+button[type="button"]:hover {
+    background: #218838;
+}
+
+.auth-required:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.success {
+    color: #28a745;
+    background: #d4edda;
+    border-color: #c3e6cb;
+}
+
+.error {
+    color: #721c24;
+    background: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.info {
+    color: #0c5460;
+    background: #d1ecf1;
+    border-color: #bee5eb;
+}
+
+.metrics-info {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #e3f2fd;
+    border-radius: 4px;
+    border-left: 4px solid #667eea;
+}
+
+.metrics-info h3 {
+    margin-bottom: 0.5rem;
+    color: #4a5568;
+    font-size: 1.1rem;
+}
+
+.metrics-info ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.metrics-info li {
+    padding: 0.25rem 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.metrics-info strong {
+    color: #4a5568;
+    font-weight: 600;
+}
+
+@media (max-width: 768px) {
+    header {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modal-content {
+        width: 95%;
+        margin: 5% auto;
+    }
+    
+    .selector {
+        flex-direction: column;
+    }
+}
+
+/* Control panel styles */
+.control-panel {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.interval-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.interval-controls label {
+    margin: 0;
+    font-weight: normal;
+}
+
+.interval-controls input[type="number"] {
+    width: 80px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+/* Health status grid */
+.health-status-grid {
+    margin-bottom: 15px;
+}
+
+.status-grid {
+    display: flex;
+    gap: 5px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+.status-box {
+    width: 30px;
+    height: 30px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.status-box.healthy {
+    background-color: #4caf50;
+    border-color: #388e3c;
+}
+
+.status-box.unhealthy {
+    background-color: #f44336;
+    border-color: #d32f2f;
+}
+
+.status-box.loading {
+    background-color: #ff9800;
+    border-color: #f57c00;
+}
+
+.grid-legend {
+    display: flex;
+    gap: 15px;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.legend-item .status-box {
+    width: 15px;
+    height: 15px;
+}

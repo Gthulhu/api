@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BSS Metrics API Client</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>BSS Metrics API Client</h1>
+        <div class="auth-status" id="authStatus">
+            <span id="authText">Not Authenticated</span>
+            <button id="authBtn" onclick="showAuthModal()">Get Token</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Authentication Modal -->
+        <div id="authModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="hideAuthModal()">&times;</span>
+                <h2>JWT Authentication</h2>
+                <form id="authForm">
+                    <label for="publicKey">Public Key (PEM format):</label>
+                    <textarea id="publicKey" placeholder="-----BEGIN PUBLIC KEY-----
+...
+-----END PUBLIC KEY-----" required></textarea>
+                    <button type="button" onclick="fillSampleKey()" style="margin-bottom: 10px;">Fill Sample Key</button>
+                    <button type="submit">Get Token</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- API Endpoints -->
+        <div class="api-section">
+            <h2>Health Check</h2>
+            <div class="control-panel">
+                <button onclick="checkHealth()" class="api-btn">Check Service Health</button>
+                <div class="interval-controls">
+                    <label for="healthInterval">Auto-refresh interval (seconds):</label>
+                    <input type="number" id="healthInterval" min="1" max="300" value="5">
+                    <button onclick="toggleHealthAutoRefresh()" id="healthAutoBtn">Start Auto-refresh</button>
+                </div>
+            </div>
+            <div class="health-status-grid">
+                <h4>Health Status (Last 10 checks)</h4>
+                <div id="healthGrid" class="status-grid"></div>
+                <div class="grid-legend">
+                    <span class="legend-item"><span class="status-box healthy"></span> Healthy</span>
+                    <span class="legend-item"><span class="status-box unhealthy"></span> Unhealthy</span>
+                </div>
+            </div>
+            <pre id="healthResult" class="result"></pre>
+        </div>
+
+        <div class="api-section">
+            <h2>Pod-PID Mapping</h2>
+            <button onclick="getPodPids()" class="api-btn auth-required">Get Pod-PID Mapping</button>
+            <pre id="podPidsResult" class="result"></pre>
+        </div>
+
+        <div class="api-section">
+            <h2>Scheduling Strategies</h2>
+            <button onclick="getStrategies()" class="api-btn auth-required">Get Scheduling Strategies</button>
+            <pre id="strategiesResult" class="result"></pre>
+            
+            <h3>Set New Scheduling Strategy</h3>
+            <form id="strategiesForm">
+                <div class="strategy-input">
+                    <label>Priority:</label>
+                    <input type="checkbox" id="priority" name="priority">
+                    
+                    <label>Execution Time (nanoseconds):</label>
+                    <input type="number" id="executionTime" name="executionTime" value="20000000" required>
+                    
+                    <label>PID (optional):</label>
+                    <input type="number" id="pid" name="pid">
+                    
+                    <label>Command Regex (optional):</label>
+                    <input type="text" id="commandRegex" name="commandRegex" placeholder="nr-gnb|ping">
+                    
+                    <h4>Label Selectors</h4>
+                    <div id="selectors">
+                        <div class="selector">
+                            <input type="text" name="selectorKey" placeholder="key">
+                            <input type="text" name="selectorValue" placeholder="value">
+                            <button type="button" onclick="removeSelector(this)">Remove</button>
+                        </div>
+                    </div>
+                    <button type="button" onclick="addSelector()">Add Selector</button>
+                </div>
+                <button type="submit" class="auth-required">Save Strategy</button>
+            </form>
+        </div>
+
+        <div class="api-section">
+            <h2>Current Metrics</h2>
+            <div class="control-panel">
+                <button onclick="getMetrics()" class="api-btn auth-required">Get Current Metrics</button>
+                <div class="interval-controls">
+                    <label for="metricsInterval">Auto-refresh interval (seconds):</label>
+                    <input type="number" id="metricsInterval" min="1" max="300" value="10">
+                    <button onclick="toggleMetricsAutoRefresh()" id="metricsAutoBtn" class="auth-required">Start Auto-refresh</button>
+                </div>
+            </div>
+            <pre id="metricsResult" class="result"></pre>
+            <div class="metrics-info">
+                <h3>Metrics Information</h3>
+                <ul>
+                    <li><strong>Last Run Time:</strong> Timestamp of last scheduler run</li>
+                    <li><strong>Queued Tasks:</strong> Number of tasks in queue</li>
+                    <li><strong>Scheduled Tasks:</strong> Number of scheduled tasks</li>
+                    <li><strong>Running Tasks:</strong> Number of currently running tasks</li>
+                    <li><strong>Online CPUs:</strong> Number of available CPU cores</li>
+                    <li><strong>User Dispatches:</strong> Number of user-space dispatches</li>
+                    <li><strong>Kernel Dispatches:</strong> Number of kernel-space dispatches</li>
+                    <li><strong>Cancel Dispatches:</strong> Number of cancelled dispatches</li>
+                    <li><strong>Bounce Dispatches:</strong> Number of bounced dispatches</li>
+                    <li><strong>Failed Dispatches:</strong> Number of failed dispatches</li>
+                    <li><strong>Scheduler Congested:</strong> Number of scheduler congestion events</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

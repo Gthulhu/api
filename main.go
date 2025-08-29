@@ -43,6 +43,15 @@ type MetricsResponse struct {
 	Timestamp string `json:"timestamp"`
 }
 
+// GetMetricsResponse represents the response structure for getting current metrics
+type GetMetricsResponse struct {
+	Success          bool     `json:"success"`
+	Message          string   `json:"message"`
+	Timestamp        string   `json:"timestamp"`
+	Data             *BssData `json:"data,omitempty"`
+	MetricsTimestamp string   `json:"metrics_timestamp,omitempty"`
+}
+
 // ErrorResponse represents error response structure
 type ErrorResponse struct {
 	Success bool   `json:"success"`
@@ -125,6 +134,11 @@ var (
 	userStrategies  []SchedulingStrategy
 	jwtPrivateKey   *rsa.PrivateKey
 	jwtConfig       JWTConfig
+
+	// Latest metrics data
+	metricsMutex     sync.RWMutex
+	latestMetrics    *BssData
+	metricsTimestamp time.Time
 )
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
@@ -346,6 +360,12 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("  Failed dispatches: %d", bssData.Nr_failed_dispatches)
 	log.Printf("  Scheduler congested: %d", bssData.Nr_sched_congested)
 
+	// Store latest metrics data
+	metricsMutex.Lock()
+	latestMetrics = &bssData
+	metricsTimestamp = time.Now()
+	metricsMutex.Unlock()
+
 	// TODO: Here you can add logic to store metrics in database or process them
 	// For now, we just acknowledge receipt
 
@@ -354,6 +374,50 @@ func MetricsHandler(w http.ResponseWriter, r *http.Request) {
 		Success:   true,
 		Message:   "Metrics received successfully",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		log.Printf("Error encoding response: %v", err)
+	}
+}
+
+// GetMetricsHandler provides current metrics data
+func GetMetricsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	// Only accept GET requests
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		if err := json.NewEncoder(w).Encode(ErrorResponse{
+			Success: false,
+			Error:   "Only GET method is allowed",
+		}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
+		return
+	}
+
+	metricsMutex.RLock()
+	currentMetrics := latestMetrics
+	currentTimestamp := metricsTimestamp
+	metricsMutex.RUnlock()
+
+	var response GetMetricsResponse
+	if currentMetrics != nil {
+		response = GetMetricsResponse{
+			Success:          true,
+			Message:          "Current metrics retrieved successfully",
+			Timestamp:        time.Now().UTC().Format(time.RFC3339),
+			Data:             currentMetrics,
+			MetricsTimestamp: currentTimestamp.UTC().Format(time.RFC3339),
+		}
+	} else {
+		response = GetMetricsResponse{
+			Success:   false,
+			Message:   "No metrics data available yet",
+			Timestamp: time.Now().UTC().Format(time.RFC3339),
+		}
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -795,11 +859,12 @@ func TokenHandler(w http.ResponseWriter, r *http.Request) {
 // jwtAuthMiddleware validates JWT token for protected endpoints
 func jwtAuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Skip auth for OPTIONS requests, health check, root endpoint, and token endpoint
+		// Skip auth for OPTIONS requests, health check, root endpoint, token endpoint, and static files
 		if r.Method == "OPTIONS" ||
 			r.URL.Path == "/health" ||
 			r.URL.Path == "/" ||
-			r.URL.Path == "/api/v1/auth/token" {
+			r.URL.Path == "/api/v1/auth/token" ||
+			strings.HasPrefix(r.URL.Path, "/static/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -926,16 +991,27 @@ func main() {
 	// Define routes
 	r.HandleFunc("/api/v1/auth/token", TokenHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/api/v1/metrics", MetricsHandler).Methods("POST", "OPTIONS")
+	r.HandleFunc("/api/v1/metrics", GetMetricsHandler).Methods("GET", "OPTIONS")
 	r.HandleFunc("/api/v1/pods/pids", PodPidHandler).Methods("GET", "OPTIONS")
 	r.HandleFunc("/api/v1/scheduling/strategies", GetSchedulingStrategiesHandler).Methods("GET", "OPTIONS")
 	r.HandleFunc("/api/v1/scheduling/strategies", SaveStrategiesHandler).Methods("POST", "OPTIONS")
 	r.HandleFunc("/health", HealthHandler).Methods("GET")
+
+	// Static file server for frontend
+	staticFS := http.FileServer(http.Dir("./static/"))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", staticFS)).Methods("GET")
+
+	// Root endpoint redirects to frontend
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/static/", http.StatusMovedPermanently)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		response := map[string]string{
 			"message":   "BSS Metrics API Server",
 			"version":   "1.0.0",
-			"endpoints": "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET)",
+			"endpoints": "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET), /static/ (Frontend)",
 		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Printf("Error encoding response: %v", err)
@@ -948,11 +1024,13 @@ func main() {
 	log.Printf("Endpoints:")
 	log.Printf("  POST /api/v1/auth/token              - Generate JWT token")
 	log.Printf("  POST /api/v1/metrics                - Submit metrics data")
+	log.Printf("  GET  /api/v1/metrics                - Get current metrics")
 	log.Printf("  GET  /api/v1/pods/pids              - Get pod-PID mappings")
 	log.Printf("  GET  /api/v1/scheduling/strategies  - Get scheduling strategies")
 	log.Printf("  POST /api/v1/scheduling/strategies  - Save scheduling strategies")
 	log.Printf("  GET  /health                        - Health check")
-	log.Printf("  GET  /                              - API information")
+	log.Printf("  GET  /static/                       - Frontend web interface")
+	log.Printf("  GET  /                              - Redirect to frontend")
 	log.Printf("JWT Authentication: Enabled (Token duration: %d hours)", jwtConfig.TokenDuration)
 
 	// Start server
