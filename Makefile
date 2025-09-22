@@ -61,14 +61,14 @@ clean:
 	go clean
 
 # Build Docker image
-docker-build:
+image:
 	@echo "Building Docker image..."
-	docker build -t bss-metrics-api .
+	docker build -t 127.0.0.1:32000/gthulhu-api:latest .
 
 # Run Docker container
-docker-run: docker-build
+docker-run: image
 	@echo "Running Docker container..."
-	docker run -p 8080:8080 bss-metrics-api
+	docker run -p 8080:8080 127.0.0.1:32000/gthulhu-api
 
 # Deploy to Kubernetes
 k8s-deploy:

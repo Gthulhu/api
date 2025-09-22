@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -27,7 +27,7 @@ WORKDIR /app/
 
 # Copy the binary from builder stage
 COPY --from=builder /app/main .
-COPY --from=builder /app/config.json .
+COPY config ./
 
 # Create directory for Kubernetes config
 RUN mkdir -p /app/.kube
@@ -39,4 +39,4 @@ EXPOSE 8080
 ENV GIN_MODE=release
 
 # Run the application with in-cluster mode by default
-CMD ["./main", "--in-cluster=true"]
+ENTRYPOINT ["bash"]
