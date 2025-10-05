@@ -377,5 +377,26 @@ API 伺服器會定期刷新其 Pod 標籤緩存，以確保即使在 Pod 標籤
 docker build -t bss-metrics-api:latest .
 ```
 
+### 容器映像釋出
+
+此專案使用 GitHub Actions 自動建置和釋出容器映像到 GitHub Container Registry (ghcr.io)。
+
+**自動釋出觸發條件：**
+- 當推送到 `main` 分支時
+- 當建立新的版本標籤時（例如：`v1.0.0`）
+
+**映像標籤規則：**
+- `main` 分支的推送將標記為 `main` 和 `main-<sha>`
+- 版本標籤將標記為 `v1.0.0`、`1.0`、`1` 等
+
+**使用已釋出的映像：**
+```bash
+# 使用最新的 main 版本
+docker pull ghcr.io/gthulhu/api:main
+
+# 使用特定版本
+docker pull ghcr.io/gthulhu/api:v1.0.0
+```
+
 ## License
 This project is open source.
