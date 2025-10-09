@@ -179,3 +179,44 @@ func getKubernetesPod(podUID string, options CommandLineOptions) (apiv1.Pod, err
 
 	return apiv1.Pod{}, ErrPodNotFound
 }
+
+// StartPodWatcher starts watching Kubernetes pod events and invalidates cache on changes
+func StartPodWatcher(cache *StrategyCache) error {
+	kubeClientMu.RLock()
+	client := kubeClient
+	kubeClientMu.RUnlock()
+
+	if client == nil {
+		return ErrKubeClientNotInit
+	}
+
+	// Start watching pods in all namespaces
+	go func() {
+		log.Println("Starting Kubernetes pod watcher...")
+
+		for {
+			// Create a watch for pods in all namespaces
+			ctx := context.Background()
+			watcher, err := client.CoreV1().Pods("").Watch(ctx, metav1.ListOptions{
+				TimeoutSeconds: func() *int64 { i := int64(300); return &i }(), // 5 minutes timeout
+			})
+
+			if err != nil {
+				log.Printf("Error creating pod watcher: %v, retrying in 10 seconds...", err)
+				time.Sleep(10 * time.Second)
+				continue
+			}
+
+			log.Println("Pod watcher started successfully")
+
+			// Process events using the existing WatchKubernetesPods function
+			WatchKubernetesPods(watcher, cache)
+
+			// If we reach here, the watcher closed, restart it
+			log.Println("Pod watcher closed, restarting in 5 seconds...")
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
+	return nil
+}
