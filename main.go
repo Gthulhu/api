@@ -442,7 +442,7 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetSchedulingStrategiesHandler provides scheduling strategies for Gthulhu
+// GetSchedulingStrategiesHandler provides scheduling strategies for Gthulhu with caching
 func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -458,51 +458,44 @@ func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a production environment, these strategies would come from a database or config file
+	// Get configured strategies
 	var configuredStrategies []SchedulingStrategy
-
 	strategiesMutex.RLock()
 	if len(userStrategies) > 0 {
 		configuredStrategies = append(configuredStrategies, userStrategies...)
 	}
 	strategiesMutex.RUnlock()
 
-	// Process the strategies and expand them for specific PIDs
-	var finalStrategies []SchedulingStrategy
+	// Try to get cached strategies
+	finalStrategies, fromCache := GetCachedStrategies(configuredStrategies)
 
-	for _, strategy := range configuredStrategies {
-		if len(strategy.Selectors) > 0 {
-			// Find PIDs that match the label selectors
-			matchedPIDs, err := findPIDsByStrategy(strategy)
-			if err != nil {
-				log.Printf("Error finding PIDs for selectors: %v", err)
-				continue
-			}
-
-			// Create a specific strategy for each matched PID
-			for _, pid := range matchedPIDs {
-				finalStrategies = append(finalStrategies, SchedulingStrategy{
-					Priority:      strategy.Priority,
-					ExecutionTime: strategy.ExecutionTime,
-					PID:           pid,
-				})
-			}
-		} else if strategy.PID != 0 {
-			// If there are no selectors but a specific PID is provided
-			finalStrategies = append(finalStrategies, strategy)
-		}
+	// If not from cache, strategies were recalculated in GetCachedStrategies
+	var message string
+	if fromCache {
+		message = "Scheduling strategies retrieved from cache"
+	} else {
+		message = "Scheduling strategies recalculated due to pod changes"
 	}
 
-	// Log the request
-	log.Printf("Scheduling strategies requested by Gthulhu, generated %d strategies", len(finalStrategies))
+	// Log the request with cache info
+	log.Printf("Scheduling strategies requested by Gthulhu, generated %d strategies (from cache: %v)",
+		len(finalStrategies), fromCache)
 
-	// Send success response
+	// Add cache statistics to response
+	cacheStats := strategyCache.GetStats()
+
+	// Send success response with cache info
 	response := SchedulingStrategiesResponse{
 		Success:    true,
-		Message:    "Scheduling strategies retrieved successfully",
+		Message:    message,
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		Scheduling: finalStrategies,
 	}
+
+	// Add cache stats as header for debugging
+	w.Header().Set("X-Cache-Hit", fmt.Sprintf("%v", fromCache))
+	w.Header().Set("X-Cache-Stats", fmt.Sprintf("hits=%d,misses=%d,hit_rate=%v",
+		cacheStats["hits"], cacheStats["misses"], cacheStats["hit_rate"]))
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -555,6 +548,10 @@ func SaveStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	strategiesMutex.Lock()
 	userStrategies = request.Strategies
 	strategiesMutex.Unlock()
+
+	// Invalidate cache since strategies have changed
+	strategyCache.Invalidate()
+	log.Printf("Strategy cache invalidated due to configuration change")
 
 	// Log received strategies
 	log.Printf("Received %d new scheduling strategies", len(request.Strategies))
