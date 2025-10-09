@@ -1,21 +1,24 @@
 package main
 
 import (
-	"testing"
-	"time"
-	"reflect"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
+	"testing"
+	"time"
 )
 
 // TestStrategyCache_ShouldReturnCachedWhenNoChanges tests that cache returns stored strategies
-// when there are no pod changes
+// when there are no pod changes and no strategy changes
 func TestStrategyCache_ShouldReturnCachedWhenNoChanges(t *testing.T) {
 	// Arrange
 	cache := NewStrategyCache()
 	initialPods := []PodInfo{
 		{PodUID: "pod1", Processes: []PodProcess{{PID: 100, Command: "test"}}},
 		{PodUID: "pod2", Processes: []PodProcess{{PID: 200, Command: "test"}}},
+	}
+	inputStrategies := []SchedulingStrategy{
+		{Priority: true, ExecutionTime: 1000, Selectors: []LabelSelector{{Key: "app", Value: "test"}}},
 	}
 	initialStrategies := []SchedulingStrategy{
 		{Priority: true, ExecutionTime: 1000, PID: 100},
@@ -24,17 +27,18 @@ func TestStrategyCache_ShouldReturnCachedWhenNoChanges(t *testing.T) {
 
 	// Act - Set up cache with initial data
 	cache.UpdatePodSnapshot(initialPods)
+	cache.UpdateStrategySnapshot(inputStrategies)
 	cache.SetStrategies(initialStrategies)
 
 	// First call should return from cache (cache hit)
-	firstResult := cache.GetStrategies(initialPods)
+	firstResult := cache.GetStrategies(initialPods, inputStrategies)
 
-	// Second call with same pods should also return from cache (another cache hit)
-	secondResult := cache.GetStrategies(initialPods)
+	// Second call with same pods and strategies should also return from cache (another cache hit)
+	secondResult := cache.GetStrategies(initialPods, inputStrategies)
 
 	// Assert
 	if !reflect.DeepEqual(firstResult, secondResult) {
-		t.Error("Expected same strategies from cache when pods haven't changed")
+		t.Error("Expected same strategies from cache when pods and strategies haven't changed")
 	}
 
 	// Both calls should be cache hits since we set strategies before calling GetStrategies
@@ -54,11 +58,15 @@ func TestStrategyCache_ShouldInvalidateOnNewPod(t *testing.T) {
 		{PodUID: "pod1", Processes: []PodProcess{{PID: 100, Command: "test"}}},
 		{PodUID: "pod2", Processes: []PodProcess{{PID: 200, Command: "test"}}}, // New pod
 	}
+	inputStrategies := []SchedulingStrategy{
+		{Priority: true, ExecutionTime: 1000, Selectors: []LabelSelector{{Key: "app", Value: "test"}}},
+	}
 
 	// Act
 	cache.UpdatePodSnapshot(initialPods)
+	cache.UpdateStrategySnapshot(inputStrategies)
 	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(initialPods)
+	_ = cache.GetStrategies(initialPods, inputStrategies)
 
 	// Should detect change and invalidate
 	hasChanged := cache.HasPodsChanged(updatedPods)
@@ -84,11 +92,15 @@ func TestStrategyCache_ShouldInvalidateOnPodRestart(t *testing.T) {
 	restartedPods := []PodInfo{
 		{PodUID: "pod1", Processes: []PodProcess{{PID: 150, Command: "test"}}},
 	}
+	inputStrategies := []SchedulingStrategy{
+		{Priority: true, ExecutionTime: 1000, Selectors: []LabelSelector{{Key: "app", Value: "test"}}},
+	}
 
 	// Act
 	cache.UpdatePodSnapshot(initialPods)
+	cache.UpdateStrategySnapshot(inputStrategies)
 	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(initialPods)
+	_ = cache.GetStrategies(initialPods, inputStrategies)
 
 	hasChanged := cache.HasPodsChanged(restartedPods)
 
@@ -116,11 +128,15 @@ func TestStrategyCache_ShouldNotInvalidateOnIrrelevantChanges(t *testing.T) {
 		{PodUID: "pod2", Processes: []PodProcess{{PID: 200, Command: "other"}}},
 		{PodUID: "pod1", Processes: []PodProcess{{PID: 100, Command: "test"}}},
 	}
+	inputStrategies := []SchedulingStrategy{
+		{Priority: true, ExecutionTime: 1000, Selectors: []LabelSelector{{Key: "app", Value: "test"}}},
+	}
 
 	// Act
 	cache.UpdatePodSnapshot(initialPods)
+	cache.UpdateStrategySnapshot(inputStrategies)
 	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(initialPods)
+	_ = cache.GetStrategies(initialPods, inputStrategies)
 
 	hasChanged := cache.HasPodsChanged(reorderedPods)
 
@@ -141,11 +157,15 @@ func TestStrategyCache_ShouldExpireAfterTTL(t *testing.T) {
 	pods := []PodInfo{
 		{PodUID: "pod1", Processes: []PodProcess{{PID: 100, Command: "test"}}},
 	}
+	inputStrategies := []SchedulingStrategy{
+		{Priority: true, ExecutionTime: 1000, Selectors: []LabelSelector{{Key: "app", Value: "test"}}},
+	}
 
 	// Act
 	cache.UpdatePodSnapshot(pods)
+	cache.UpdateStrategySnapshot(inputStrategies)
 	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(pods)
+	_ = cache.GetStrategies(pods, inputStrategies)
 
 	// Wait for TTL to expire
 	time.Sleep(150 * time.Millisecond)
@@ -153,6 +173,46 @@ func TestStrategyCache_ShouldExpireAfterTTL(t *testing.T) {
 	// Assert
 	if cache.IsValid() {
 		t.Error("Expected cache to expire after TTL")
+	}
+}
+
+// TestStrategyCache_ShouldInvalidateOnStrategyChange tests that cache invalidates when strategies change
+func TestStrategyCache_ShouldInvalidateOnStrategyChange(t *testing.T) {
+	// Arrange
+	cache := NewStrategyCache()
+	pods := []PodInfo{
+		{PodUID: "pod1", Processes: []PodProcess{{PID: 100, Command: "test"}}},
+	}
+	initialStrategies := []SchedulingStrategy{
+		{Priority: true, ExecutionTime: 1000, Selectors: []LabelSelector{{Key: "app", Value: "test"}}},
+	}
+	updatedStrategies := []SchedulingStrategy{
+		{Priority: false, ExecutionTime: 2000, Selectors: []LabelSelector{{Key: "app", Value: "prod"}}}, // Changed strategy
+	}
+
+	// Act
+	cache.UpdatePodSnapshot(pods)
+	cache.UpdateStrategySnapshot(initialStrategies)
+	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
+
+	// First call with initial strategies - should hit cache
+	firstResult := cache.GetStrategies(pods, initialStrategies)
+	if firstResult == nil {
+		t.Error("Expected cache hit with initial strategies")
+	}
+
+	// Second call with changed strategies - should miss cache
+	secondResult := cache.GetStrategies(pods, updatedStrategies)
+	if secondResult != nil {
+		t.Error("Expected cache miss when strategies changed")
+	}
+
+	// Assert
+	if cache.GetCacheHits() != 1 {
+		t.Errorf("Expected 1 cache hit, got %d", cache.GetCacheHits())
+	}
+	if cache.GetCacheMisses() != 1 {
+		t.Errorf("Expected 1 cache miss, got %d", cache.GetCacheMisses())
 	}
 }
 

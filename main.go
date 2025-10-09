@@ -139,6 +139,10 @@ var (
 	metricsMutex     sync.RWMutex
 	latestMetrics    *BssData
 	metricsTimestamp time.Time
+
+	// Regex compilation cache
+	regexCacheMu sync.RWMutex
+	regexCache   = make(map[string]*regexp.Regexp)
 )
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
@@ -219,6 +223,7 @@ func getPodPidMapping() ([]PodInfo, error) {
 		if err != nil {
 			continue
 		}
+		defer file.Close()
 
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
@@ -258,7 +263,6 @@ func getPodPidMapping() ([]PodInfo, error) {
 				break
 			}
 		}
-		file.Close()
 	}
 
 	// Convert map to slice
@@ -598,6 +602,31 @@ func findPIDsByStrategy(strategy SchedulingStrategy) ([]int, error) {
 		return nil, fmt.Errorf("failed to get pod-pid mappings: %v", err)
 	}
 
+	// Set default regex if empty
+	if strategy.CommandRegex == "" {
+		strategy.CommandRegex = ".*"
+	}
+
+	// Get or compile regex pattern (with caching)
+	regexCacheMu.RLock()
+	regex, exists := regexCache[strategy.CommandRegex]
+	regexCacheMu.RUnlock()
+
+	if !exists {
+		// Compile regex and add to cache
+		compiledRegex, err := regexp.Compile(strategy.CommandRegex)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex pattern '%s': %v", strategy.CommandRegex, err)
+		}
+
+		regexCacheMu.Lock()
+		regexCache[strategy.CommandRegex] = compiledRegex
+		regexCacheMu.Unlock()
+
+		regex = compiledRegex
+		log.Printf("Compiled and cached regex pattern: %s", strategy.CommandRegex)
+	}
+
 	for _, pod := range pods {
 		podSpec, err := getKubernetesPod(pod.PodUID, cmdOptions)
 		if err != nil {
@@ -616,16 +645,8 @@ func findPIDsByStrategy(strategy SchedulingStrategy) ([]int, error) {
 		}
 
 		if matches {
+			// Use cached regex for all process matching
 			for _, process := range pod.Processes {
-				if strategy.CommandRegex == "" {
-					// Default to match any command if no regex is provided
-					strategy.CommandRegex = ".*"
-				}
-				regex, err := regexp.Compile(strategy.CommandRegex)
-				if err != nil {
-					log.Printf("Error compiling regex: %v", err)
-					continue
-				}
 				if regex.MatchString(process.Command) {
 					matchedPIDs = append(matchedPIDs, process.PID)
 				}
@@ -950,6 +971,14 @@ func main() {
 	if err := initKubernetesClient(cmdOptions); err != nil {
 		log.Printf("Warning: Failed to initialize Kubernetes client: %v", err)
 		log.Printf("Pod label information will be based on mock data")
+	} else {
+		// Start Kubernetes pod watcher for cache invalidation
+		if err := StartPodWatcher(strategyCache); err != nil {
+			log.Printf("Warning: Failed to start pod watcher: %v", err)
+			log.Printf("Cache will not be automatically invalidated on pod changes")
+		} else {
+			log.Println("Kubernetes pod watcher started successfully")
+		}
 	}
 
 	// Load configuration
