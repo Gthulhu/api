@@ -486,7 +486,7 @@ func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 		len(finalStrategies), fromCache)
 
 	// Add cache statistics to response
-	cacheStats := strategyCache.GetStats()
+	cacheStats := strategyCache.getStats()
 
 	// Send success response with cache info
 	response := SchedulingStrategiesResponse{
@@ -554,7 +554,7 @@ func SaveStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	strategiesMutex.Unlock()
 
 	// Invalidate cache since strategies have changed
-	strategyCache.Invalidate()
+	strategyCache.invalidate()
 	log.Printf("Strategy cache invalidated due to configuration change")
 
 	// Log received strategies

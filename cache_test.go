@@ -1,11 +1,12 @@
 package main
 
 import (
-	apiv1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	"testing"
 	"time"
+
+	apiv1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TestStrategyCache_ShouldReturnCachedWhenNoChanges tests that cache returns stored strategies
@@ -26,15 +27,15 @@ func TestStrategyCache_ShouldReturnCachedWhenNoChanges(t *testing.T) {
 	}
 
 	// Act - Set up cache with initial data
-	cache.UpdatePodSnapshot(initialPods)
-	cache.UpdateStrategySnapshot(inputStrategies)
-	cache.SetStrategies(initialStrategies)
+	cache.updatePodSnapshot(initialPods)
+	cache.updateStrategySnapshot(inputStrategies)
+	cache.setStrategies(initialStrategies)
 
 	// First call should return from cache (cache hit)
-	firstResult := cache.GetStrategies(initialPods, inputStrategies)
+	firstResult := cache.getStrategies(initialPods, inputStrategies)
 
 	// Second call with same pods and strategies should also return from cache (another cache hit)
-	secondResult := cache.GetStrategies(initialPods, inputStrategies)
+	secondResult := cache.getStrategies(initialPods, inputStrategies)
 
 	// Assert
 	if !reflect.DeepEqual(firstResult, secondResult) {
@@ -42,8 +43,8 @@ func TestStrategyCache_ShouldReturnCachedWhenNoChanges(t *testing.T) {
 	}
 
 	// Both calls should be cache hits since we set strategies before calling GetStrategies
-	if cache.GetCacheHits() != 2 {
-		t.Errorf("Expected 2 cache hits, got %d", cache.GetCacheHits())
+	if cache.getCacheHits() != 2 {
+		t.Errorf("Expected 2 cache hits, got %d", cache.getCacheHits())
 	}
 }
 
@@ -63,20 +64,20 @@ func TestStrategyCache_ShouldInvalidateOnNewPod(t *testing.T) {
 	}
 
 	// Act
-	cache.UpdatePodSnapshot(initialPods)
-	cache.UpdateStrategySnapshot(inputStrategies)
-	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(initialPods, inputStrategies)
+	cache.updatePodSnapshot(initialPods)
+	cache.updateStrategySnapshot(inputStrategies)
+	cache.setStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
+	_ = cache.getStrategies(initialPods, inputStrategies)
 
 	// Should detect change and invalidate
-	hasChanged := cache.HasPodsChanged(updatedPods)
+	hasChanged := cache.hasPodsChanged(updatedPods)
 
 	// Assert
 	if !hasChanged {
 		t.Error("Expected cache to detect new pod addition")
 	}
 
-	if cache.IsValid() {
+	if cache.isValid() {
 		t.Error("Expected cache to be invalidated after pod change")
 	}
 }
@@ -97,19 +98,19 @@ func TestStrategyCache_ShouldInvalidateOnPodRestart(t *testing.T) {
 	}
 
 	// Act
-	cache.UpdatePodSnapshot(initialPods)
-	cache.UpdateStrategySnapshot(inputStrategies)
-	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(initialPods, inputStrategies)
+	cache.updatePodSnapshot(initialPods)
+	cache.updateStrategySnapshot(inputStrategies)
+	cache.setStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
+	_ = cache.getStrategies(initialPods, inputStrategies)
 
-	hasChanged := cache.HasPodsChanged(restartedPods)
+	hasChanged := cache.hasPodsChanged(restartedPods)
 
 	// Assert
 	if !hasChanged {
 		t.Error("Expected cache to detect pod restart (PID change)")
 	}
 
-	if cache.IsValid() {
+	if cache.isValid() {
 		t.Error("Expected cache to be invalidated after pod restart")
 	}
 }
@@ -133,19 +134,19 @@ func TestStrategyCache_ShouldNotInvalidateOnIrrelevantChanges(t *testing.T) {
 	}
 
 	// Act
-	cache.UpdatePodSnapshot(initialPods)
-	cache.UpdateStrategySnapshot(inputStrategies)
-	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(initialPods, inputStrategies)
+	cache.updatePodSnapshot(initialPods)
+	cache.updateStrategySnapshot(inputStrategies)
+	cache.setStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
+	_ = cache.getStrategies(initialPods, inputStrategies)
 
-	hasChanged := cache.HasPodsChanged(reorderedPods)
+	hasChanged := cache.hasPodsChanged(reorderedPods)
 
 	// Assert
 	if hasChanged {
 		t.Error("Expected cache to remain valid when only order changes")
 	}
 
-	if !cache.IsValid() {
+	if !cache.isValid() {
 		t.Error("Expected cache to stay valid for irrelevant changes")
 	}
 }
@@ -162,16 +163,16 @@ func TestStrategyCache_ShouldExpireAfterTTL(t *testing.T) {
 	}
 
 	// Act
-	cache.UpdatePodSnapshot(pods)
-	cache.UpdateStrategySnapshot(inputStrategies)
-	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
-	_ = cache.GetStrategies(pods, inputStrategies)
+	cache.updatePodSnapshot(pods)
+	cache.updateStrategySnapshot(inputStrategies)
+	cache.setStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
+	_ = cache.getStrategies(pods, inputStrategies)
 
 	// Wait for TTL to expire
 	time.Sleep(150 * time.Millisecond)
 
 	// Assert
-	if cache.IsValid() {
+	if cache.isValid() {
 		t.Error("Expected cache to expire after TTL")
 	}
 }
@@ -191,28 +192,28 @@ func TestStrategyCache_ShouldInvalidateOnStrategyChange(t *testing.T) {
 	}
 
 	// Act
-	cache.UpdatePodSnapshot(pods)
-	cache.UpdateStrategySnapshot(initialStrategies)
-	cache.SetStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
+	cache.updatePodSnapshot(pods)
+	cache.updateStrategySnapshot(initialStrategies)
+	cache.setStrategies([]SchedulingStrategy{{Priority: true, ExecutionTime: 1000, PID: 100}})
 
 	// First call with initial strategies - should hit cache
-	firstResult := cache.GetStrategies(pods, initialStrategies)
+	firstResult := cache.getStrategies(pods, initialStrategies)
 	if firstResult == nil {
 		t.Error("Expected cache hit with initial strategies")
 	}
 
 	// Second call with changed strategies - should miss cache
-	secondResult := cache.GetStrategies(pods, updatedStrategies)
+	secondResult := cache.getStrategies(pods, updatedStrategies)
 	if secondResult != nil {
 		t.Error("Expected cache miss when strategies changed")
 	}
 
 	// Assert
-	if cache.GetCacheHits() != 1 {
-		t.Errorf("Expected 1 cache hit, got %d", cache.GetCacheHits())
+	if cache.getCacheHits() != 1 {
+		t.Errorf("Expected 1 cache hit, got %d", cache.getCacheHits())
 	}
-	if cache.GetCacheMisses() != 1 {
-		t.Errorf("Expected 1 cache miss, got %d", cache.GetCacheMisses())
+	if cache.getCacheMisses() != 1 {
+		t.Errorf("Expected 1 cache miss, got %d", cache.getCacheMisses())
 	}
 }
 

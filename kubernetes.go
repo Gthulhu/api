@@ -210,7 +210,7 @@ func StartPodWatcher(cache *StrategyCache) error {
 					podLabelCacheTime[string(pod.UID)] = time.Now()
 					podLabelCacheMu.Unlock()
 				}
-				cache.Invalidate()
+				cache.invalidate()
 				log.Printf("Pod Added event: cache invalidated")
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
@@ -220,7 +220,7 @@ func StartPodWatcher(cache *StrategyCache) error {
 					podLabelCacheTime[string(pod.UID)] = time.Now()
 					podLabelCacheMu.Unlock()
 				}
-				cache.Invalidate()
+				cache.invalidate()
 				log.Printf("Pod Updated event: cache invalidated")
 			},
 			DeleteFunc: func(obj interface{}) {
@@ -238,7 +238,7 @@ func StartPodWatcher(cache *StrategyCache) error {
 						podLabelCacheMu.Unlock()
 					}
 				}
-				cache.Invalidate()
+				cache.invalidate()
 				log.Printf("Pod Deleted event: cache invalidated")
 			},
 		})
