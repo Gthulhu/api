@@ -39,4 +39,4 @@ EXPOSE 8080
 ENV GIN_MODE=release
 
 # Run the application with in-cluster mode by default
-CMD ["./main", "--in-cluster", "--config", "/app/config/config.json"]
+ENTRYPOINT ["bash"]
