@@ -139,6 +139,10 @@ var (
 	metricsMutex     sync.RWMutex
 	latestMetrics    *BssData
 	metricsTimestamp time.Time
+
+	// Regex compilation cache
+	regexCacheMu sync.RWMutex
+	regexCache   = make(map[string]*regexp.Regexp)
 )
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
@@ -219,6 +223,7 @@ func getPodPidMapping() ([]PodInfo, error) {
 		if err != nil {
 			continue
 		}
+		defer file.Close()
 
 		scanner := bufio.NewScanner(file)
 		for scanner.Scan() {
@@ -258,7 +263,6 @@ func getPodPidMapping() ([]PodInfo, error) {
 				break
 			}
 		}
-		file.Close()
 	}
 
 	// Convert map to slice
@@ -442,7 +446,7 @@ func HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// GetSchedulingStrategiesHandler provides scheduling strategies for Gthulhu
+// GetSchedulingStrategiesHandler provides scheduling strategies for Gthulhu with caching
 func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -458,51 +462,44 @@ func GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// In a production environment, these strategies would come from a database or config file
+	// Get configured strategies
 	var configuredStrategies []SchedulingStrategy
-
 	strategiesMutex.RLock()
 	if len(userStrategies) > 0 {
 		configuredStrategies = append(configuredStrategies, userStrategies...)
 	}
 	strategiesMutex.RUnlock()
 
-	// Process the strategies and expand them for specific PIDs
-	var finalStrategies []SchedulingStrategy
+	// Try to get cached strategies
+	finalStrategies, fromCache := GetCachedStrategies(configuredStrategies)
 
-	for _, strategy := range configuredStrategies {
-		if len(strategy.Selectors) > 0 {
-			// Find PIDs that match the label selectors
-			matchedPIDs, err := findPIDsByStrategy(strategy)
-			if err != nil {
-				log.Printf("Error finding PIDs for selectors: %v", err)
-				continue
-			}
-
-			// Create a specific strategy for each matched PID
-			for _, pid := range matchedPIDs {
-				finalStrategies = append(finalStrategies, SchedulingStrategy{
-					Priority:      strategy.Priority,
-					ExecutionTime: strategy.ExecutionTime,
-					PID:           pid,
-				})
-			}
-		} else if strategy.PID != 0 {
-			// If there are no selectors but a specific PID is provided
-			finalStrategies = append(finalStrategies, strategy)
-		}
+	// If not from cache, strategies were recalculated in GetCachedStrategies
+	var message string
+	if fromCache {
+		message = "Scheduling strategies retrieved from cache"
+	} else {
+		message = "Scheduling strategies recalculated due to pod changes"
 	}
 
-	// Log the request
-	log.Printf("Scheduling strategies requested by Gthulhu, generated %d strategies", len(finalStrategies))
+	// Log the request with cache info
+	log.Printf("Scheduling strategies requested by Gthulhu, generated %d strategies (from cache: %v)",
+		len(finalStrategies), fromCache)
 
-	// Send success response
+	// Add cache statistics to response
+	cacheStats := strategyCache.getStats()
+
+	// Send success response with cache info
 	response := SchedulingStrategiesResponse{
 		Success:    true,
-		Message:    "Scheduling strategies retrieved successfully",
+		Message:    message,
 		Timestamp:  time.Now().UTC().Format(time.RFC3339),
 		Scheduling: finalStrategies,
 	}
+
+	// Add cache stats as header for debugging
+	w.Header().Set("X-Cache-Hit", fmt.Sprintf("%v", fromCache))
+	w.Header().Set("X-Cache-Stats", fmt.Sprintf("hits=%d,misses=%d,hit_rate=%v",
+		cacheStats["hits"], cacheStats["misses"], cacheStats["hit_rate"]))
 
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -556,6 +553,10 @@ func SaveStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	userStrategies = request.Strategies
 	strategiesMutex.Unlock()
 
+	// Invalidate cache since strategies have changed
+	strategyCache.invalidate()
+	log.Printf("Strategy cache invalidated due to configuration change")
+
 	// Log received strategies
 	log.Printf("Received %d new scheduling strategies", len(request.Strategies))
 	for i, strategy := range request.Strategies {
@@ -601,6 +602,31 @@ func findPIDsByStrategy(strategy SchedulingStrategy) ([]int, error) {
 		return nil, fmt.Errorf("failed to get pod-pid mappings: %v", err)
 	}
 
+	// Set default regex if empty
+	if strategy.CommandRegex == "" {
+		strategy.CommandRegex = ".*"
+	}
+
+	// Get or compile regex pattern (with caching)
+	regexCacheMu.RLock()
+	regex, exists := regexCache[strategy.CommandRegex]
+	regexCacheMu.RUnlock()
+
+	if !exists {
+		// Compile regex and add to cache
+		compiledRegex, err := regexp.Compile(strategy.CommandRegex)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex pattern '%s': %v", strategy.CommandRegex, err)
+		}
+
+		regexCacheMu.Lock()
+		regexCache[strategy.CommandRegex] = compiledRegex
+		regexCacheMu.Unlock()
+
+		regex = compiledRegex
+		log.Printf("Compiled and cached regex pattern: %s", strategy.CommandRegex)
+	}
+
 	for _, pod := range pods {
 		podSpec, err := getKubernetesPod(pod.PodUID, cmdOptions)
 		if err != nil {
@@ -619,16 +645,8 @@ func findPIDsByStrategy(strategy SchedulingStrategy) ([]int, error) {
 		}
 
 		if matches {
+			// Use cached regex for all process matching
 			for _, process := range pod.Processes {
-				if strategy.CommandRegex == "" {
-					// Default to match any command if no regex is provided
-					strategy.CommandRegex = ".*"
-				}
-				regex, err := regexp.Compile(strategy.CommandRegex)
-				if err != nil {
-					log.Printf("Error compiling regex: %v", err)
-					continue
-				}
 				if regex.MatchString(process.Command) {
 					matchedPIDs = append(matchedPIDs, process.PID)
 				}
@@ -953,6 +971,14 @@ func main() {
 	if err := initKubernetesClient(cmdOptions); err != nil {
 		log.Printf("Warning: Failed to initialize Kubernetes client: %v", err)
 		log.Printf("Pod label information will be based on mock data")
+	} else {
+		// Start Kubernetes pod watcher for cache invalidation
+		if err := StartPodWatcher(strategyCache); err != nil {
+			log.Printf("Warning: Failed to start pod watcher: %v", err)
+			log.Printf("Cache will not be automatically invalidated on pod changes")
+		} else {
+			log.Println("Kubernetes pod watcher started successfully")
+		}
 	}
 
 	// Load configuration
