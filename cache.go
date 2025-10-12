@@ -10,7 +10,6 @@ import (
 	"time"
 
 	apiv1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/watch"
 )
 
 // StrategyCache manages caching of scheduling strategies
@@ -451,18 +450,6 @@ func (w *PodWatcher) watchLoop() {
 			return
 		default:
 			// Would process Kubernetes events here
-		}
-	}
-}
-
-// WatchKubernetesPods watches Kubernetes pods for changes
-func WatchKubernetesPods(watcher watch.Interface, cache *StrategyCache) {
-	for event := range watcher.ResultChan() {
-		switch event.Type {
-		case watch.Added, watch.Modified, watch.Deleted:
-			// Pod state has changed, invalidate cache
-			cache.Invalidate()
-			log.Printf("Pod event detected: %v, cache invalidated", event.Type)
 		}
 	}
 }
