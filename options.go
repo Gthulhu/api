@@ -3,8 +3,11 @@ package main
 import (
 	"flag"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/Gthulhu/api/util"
 )
 
 // CommandLineOptions contains all command line options
@@ -46,17 +49,20 @@ func ParseCommandLineOptions() CommandLineOptions {
 
 // PrintCommandLineOptions prints the current command line options
 func PrintCommandLineOptions(options CommandLineOptions) {
-	log.Printf("Configuration:")
-	log.Printf("  Config file: %s", options.ConfigPath)
+	logger := util.GetLogger()
+	logger = logger.With(slog.String("config_path", options.ConfigPath))
 	if options.Port != "" {
-		log.Printf("  Port override: %s", options.Port)
+		logger = logger.With(slog.String("port_override", options.Port))
 	}
 
 	if options.InCluster {
+		logger = logger.With(slog.Bool("k8s_in_cluster_mode", options.InCluster))
 		log.Printf("  Kubernetes: In-cluster mode")
 	} else if options.KubeConfigPath != "" {
-		log.Printf("  Kubernetes config: %s", options.KubeConfigPath)
+		logger = logger.With(slog.Bool("k8s_in_cluster_mode", false))
+		logger = logger.With(slog.String("k8s_config_path", options.KubeConfigPath))
 	} else {
-		log.Printf("  Kubernetes: No config specified")
+		logger.Info("Kubernetes: No config specified")
 	}
+	logger.Info("parsed command line options")
 }
