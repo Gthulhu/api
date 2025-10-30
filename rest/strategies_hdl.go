@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Gthulhu/api/domain"
+	"github.com/Gthulhu/api/util"
 )
 
 // GetSchedulingStrategiesResponse represents the response structure for scheduling strategies
@@ -20,7 +21,9 @@ type GetSchedulingStrategiesResponse struct {
 func (h *Handler) GetSchedulingStrategiesHandler(w http.ResponseWriter, r *http.Request) {
 	finalStrategies, fromCache, err := h.Service.FindCurrentUsingSchedulingStrategiesWithPID(r.Context())
 	if err != nil {
-		h.ErrorResponse(w, http.StatusInternalServerError, "Failed to get scheduling strategies"+err.Error())
+		util.GetLogger().Error("Failed to get scheduling strategies", util.LogErrAttr(err))
+		h.ErrorResponse(w, http.StatusInternalServerError, "Failed to get scheduling strategies: "+err.Error())
+		return
 	}
 
 	// If not from cache, strategies were recalculated in GetCachedStrategies

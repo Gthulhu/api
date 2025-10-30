@@ -44,7 +44,7 @@ func (svc *Service) verifyPublicKey(publicKeyPEM string) error {
 	}
 
 	// Compare public key with our private key's public key
-	if !rsaPublicKey.Equal(svc.jwtPrivateKey.PublicKey) {
+	if !rsaPublicKey.Equal(&svc.jwtPrivateKey.PublicKey) {
 		return fmt.Errorf("public key does not match server's private key")
 	}
 

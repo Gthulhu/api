@@ -40,11 +40,12 @@ func (svc *Service) FindPodInfoFrom(ctx context.Context, rootDir string) ([]*dom
 		// Check if directory name is a PID (numeric)
 		pid, err := strconv.Atoi(entry.Name())
 		if err != nil {
-			return nil, fmt.Errorf("failed to convert %s to PID: %v", entry.Name(), err)
+			// Not a numeric PID directory (e.g., "acpi", "bus", etc.) — skip
+			continue
 		}
 
 		// Read cgroup information for this process
-		cgroupPath := fmt.Sprintf("/%s/%d/cgroup", rootDir, pid)
+		cgroupPath := fmt.Sprintf("%s/%d/cgroup", rootDir, pid)
 		file, err := os.Open(cgroupPath)
 		if err != nil {
 			util.GetLogger().Error("failed to open cgroup file", slog.String("path", cgroupPath), util.LogErrAttr(err))
@@ -56,10 +57,16 @@ func (svc *Service) FindPodInfoFrom(ctx context.Context, rootDir string) ([]*dom
 			if strings.Contains(line, "kubepods") {
 				err = svc.parseCgroupToPodInfo(rootDir, line, pid, podMap)
 				if err != nil {
-					return nil, err
+					// If we fail to parse for this process, log and continue with others
+					util.GetLogger().Error("failed to parse cgroup to pod info", slog.String("line", line), util.LogErrAttr(err))
+					break
 				}
 			}
 		}
+		if err := scanner.Err(); err != nil {
+			util.GetLogger().Error("scanner error reading cgroup file", slog.String("path", cgroupPath), util.LogErrAttr(err))
+		}
+		_ = file.Close()
 	}
 
 	// Convert map to slice
