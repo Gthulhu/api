@@ -13,7 +13,7 @@ import (
 
 // VerifyAndGenerateToken verifies the provided public key and generates a JWT token if valid
 func (svc *Service) VerifyAndGenerateToken(ctx context.Context, publicKey string) (string, error) {
-	err := svc.verifyPublicKey(publicKey)
+	err := svc.VerifyPublicKey(publicKey)
 	if err != nil {
 		return "", fmt.Errorf("public key verification failed: %v", err)
 	}
@@ -27,7 +27,7 @@ func (svc *Service) VerifyAndGenerateToken(ctx context.Context, publicKey string
 }
 
 // verifyPublicKey verifies if the provided public key matches our private key
-func (svc *Service) verifyPublicKey(publicKeyPEM string) error {
+func (svc *Service) VerifyPublicKey(publicKeyPEM string) error {
 	block, _ := pem.Decode([]byte(publicKeyPEM))
 	if block == nil {
 		return fmt.Errorf("failed to decode PEM block containing public key")
