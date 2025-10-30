@@ -1,21 +1,21 @@
-package main
+package cache
 
 import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/Gthulhu/api/domain"
 	apiv1 "k8s.io/api/core/v1"
 )
 
 // StrategyCache manages caching of scheduling strategies
 type StrategyCache struct {
 	mu                  sync.RWMutex
-	cachedStrategies    []SchedulingStrategy
+	cachedStrategies    []*domain.SchedulingStrategy
 	podFingerprint      string
 	strategyFingerprint string
 	lastUpdate          time.Time
@@ -42,7 +42,7 @@ func NewStrategyCacheWithTTL(ttl time.Duration) *StrategyCache {
 }
 
 // UpdatePodSnapshot updates the pod fingerprint
-func (c *StrategyCache) updatePodSnapshot(pods []PodInfo) {
+func (c *StrategyCache) UpdatePodSnapshot(pods []*domain.PodInfo) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -51,7 +51,7 @@ func (c *StrategyCache) updatePodSnapshot(pods []PodInfo) {
 }
 
 // UpdateStrategySnapshot updates the strategy fingerprint
-func (c *StrategyCache) updateStrategySnapshot(strategies []SchedulingStrategy) {
+func (c *StrategyCache) UpdateStrategySnapshot(strategies []*domain.SchedulingStrategy) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -59,10 +59,9 @@ func (c *StrategyCache) updateStrategySnapshot(strategies []SchedulingStrategy) 
 }
 
 // SetStrategies stores strategies in cache
-func (c *StrategyCache) setStrategies(strategies []SchedulingStrategy) {
+func (c *StrategyCache) SetStrategies(strategies []*domain.SchedulingStrategy) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
 	c.cachedStrategies = strategies
 	c.lastUpdate = time.Now()
 	c.valid = true
@@ -70,7 +69,7 @@ func (c *StrategyCache) setStrategies(strategies []SchedulingStrategy) {
 
 // GetStrategiesQuick returns cached strategies without checking pod state
 // Relies on Kubernetes Watch to invalidate cache when pods change
-func (c *StrategyCache) getStrategiesQuick(inputStrategies []SchedulingStrategy) []SchedulingStrategy {
+func (c *StrategyCache) GetStrategiesQuick(inputStrategies []*domain.SchedulingStrategy) []*domain.SchedulingStrategy {
 	c.mu.RLock()
 
 	// Quick validation checks
@@ -89,7 +88,7 @@ func (c *StrategyCache) getStrategiesQuick(inputStrategies []SchedulingStrategy)
 
 	// Return cached copy if valid
 	if cacheValid {
-		cachedStrategies := make([]SchedulingStrategy, len(c.cachedStrategies))
+		cachedStrategies := make([]*domain.SchedulingStrategy, len(c.cachedStrategies))
 		copy(cachedStrategies, c.cachedStrategies)
 		c.mu.RUnlock()
 
@@ -113,7 +112,7 @@ func (c *StrategyCache) getStrategiesQuick(inputStrategies []SchedulingStrategy)
 
 // GetStrategies returns cached strategies if valid, otherwise returns nil
 // This version still checks pod fingerprint for backward compatibility
-func (c *StrategyCache) getStrategies(currentPods []PodInfo, inputStrategies []SchedulingStrategy) []SchedulingStrategy {
+func (c *StrategyCache) GetStrategies(currentPods []*domain.PodInfo, inputStrategies []*domain.SchedulingStrategy) []*domain.SchedulingStrategy {
 	// First, do a quick read-only check
 	c.mu.RLock()
 	cacheValid := c.valid && len(c.cachedStrategies) > 0
@@ -145,7 +144,7 @@ func (c *StrategyCache) getStrategies(currentPods []PodInfo, inputStrategies []S
 
 	// If still valid, return cached copy
 	if cacheValid {
-		cachedStrategies := make([]SchedulingStrategy, len(c.cachedStrategies))
+		cachedStrategies := make([]*domain.SchedulingStrategy, len(c.cachedStrategies))
 		copy(cachedStrategies, c.cachedStrategies)
 		c.mu.RUnlock()
 
@@ -172,7 +171,7 @@ func (c *StrategyCache) getStrategies(currentPods []PodInfo, inputStrategies []S
 			currentStrategyFingerprint = ComputeStrategyFingerprint(inputStrategies)
 			if currentPodFingerprint == c.podFingerprint && currentStrategyFingerprint == c.strategyFingerprint {
 				// Cache became valid while we were waiting for lock
-				cachedStrategies := make([]SchedulingStrategy, len(c.cachedStrategies))
+				cachedStrategies := make([]*domain.SchedulingStrategy, len(c.cachedStrategies))
 				copy(cachedStrategies, c.cachedStrategies)
 				c.cacheHits++
 				return cachedStrategies
@@ -187,7 +186,7 @@ func (c *StrategyCache) getStrategies(currentPods []PodInfo, inputStrategies []S
 }
 
 // HasPodsChanged checks if pods have changed since last snapshot
-func (c *StrategyCache) hasPodsChanged(pods []PodInfo) bool {
+func (c *StrategyCache) HasPodsChanged(pods []*domain.PodInfo) bool {
 	c.mu.RLock()
 	detector := NewPodChangeDetector()
 	currentFingerprint := detector.ComputeFingerprint(pods)
@@ -207,7 +206,7 @@ func (c *StrategyCache) hasPodsChanged(pods []PodInfo) bool {
 }
 
 // IsValid returns whether cache is valid
-func (c *StrategyCache) isValid() bool {
+func (c *StrategyCache) IsValid() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -220,28 +219,28 @@ func (c *StrategyCache) isValid() bool {
 }
 
 // Invalidate marks cache as invalid
-func (c *StrategyCache) invalidate() {
+func (c *StrategyCache) Invalidate() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.valid = false
 }
 
 // GetCacheHits returns number of cache hits
-func (c *StrategyCache) getCacheHits() int {
+func (c *StrategyCache) GetCacheHits() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.cacheHits
 }
 
 // GetCacheMisses returns number of cache misses
-func (c *StrategyCache) getCacheMisses() int {
+func (c *StrategyCache) GetCacheMisses() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.cacheMisses
 }
 
 // GetStats returns cache statistics
-func (c *StrategyCache) getStats() map[string]interface{} {
+func (c *StrategyCache) GetStats() map[string]interface{} {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -281,7 +280,7 @@ type ProcessFingerprint struct {
 }
 
 // ComputeFingerprint generates a unique fingerprint for pod state
-func (d *PodChangeDetector) ComputeFingerprint(pods []PodInfo) string {
+func (d *PodChangeDetector) ComputeFingerprint(pods []*domain.PodInfo) string {
 	// Create a deterministic representation
 	fingerprints := make([]PodFingerprint, len(pods))
 
@@ -318,19 +317,19 @@ func (d *PodChangeDetector) ComputeFingerprint(pods []PodInfo) string {
 
 // ComputeStrategyFingerprint generates a unique fingerprint for scheduling strategies
 // This excludes PID field as PIDs are calculated, not part of input strategy
-func ComputeStrategyFingerprint(strategies []SchedulingStrategy) string {
+func ComputeStrategyFingerprint(strategies []*domain.SchedulingStrategy) string {
 	// Create a deterministic representation excluding calculated PIDs
 	type StrategyKey struct {
 		Priority      bool
 		ExecutionTime uint64
-		Selectors     []LabelSelector
+		Selectors     []domain.LabelSelector
 		CommandRegex  string
 	}
 
 	keys := make([]StrategyKey, len(strategies))
 	for i, s := range strategies {
 		// Sort selectors for consistency
-		selectors := make([]LabelSelector, len(s.Selectors))
+		selectors := make([]domain.LabelSelector, len(s.Selectors))
 		copy(selectors, s.Selectors)
 		sort.Slice(selectors, func(i, j int) bool {
 			if selectors[i].Key != selectors[j].Key {
@@ -456,54 +455,3 @@ func (w *PodWatcher) watchLoop() {
 
 // Global cache instance
 var strategyCache = NewStrategyCache()
-
-// GetCachedStrategies returns cached strategies or recalculates if needed
-// This optimized version avoids calling getPodPidMapping() on cache hits
-// Pod changes are detected by Kubernetes Watch mechanism
-func GetCachedStrategies(userStrategies []SchedulingStrategy) ([]SchedulingStrategy, bool) {
-	// Try to get from cache first (no expensive pod scanning)
-	cachedStrategies := strategyCache.getStrategiesQuick(userStrategies)
-	if cachedStrategies != nil {
-		log.Printf("Cache hit! Returning cached strategies. Stats: %v", strategyCache.getStats())
-		return cachedStrategies, true
-	}
-
-	// Cache miss - need to recalculate
-	log.Printf("Cache miss. Recalculating strategies. Stats: %v", strategyCache.getStats())
-
-	// Now get current pod state (only on cache miss)
-	pods, err := getPodPidMapping()
-	if err != nil {
-		log.Printf("Error getting pod mappings: %v", err)
-		return nil, false
-	}
-
-	// Recalculate strategies
-	var finalStrategies []SchedulingStrategy
-	for _, strategy := range userStrategies {
-		if len(strategy.Selectors) > 0 {
-			matchedPIDs, err := findPIDsByStrategy(strategy)
-			if err != nil {
-				log.Printf("Error finding PIDs for strategy: %v", err)
-				continue
-			}
-
-			for _, pid := range matchedPIDs {
-				finalStrategies = append(finalStrategies, SchedulingStrategy{
-					Priority:      strategy.Priority,
-					ExecutionTime: strategy.ExecutionTime,
-					PID:           pid,
-				})
-			}
-		} else if strategy.PID != 0 {
-			finalStrategies = append(finalStrategies, strategy)
-		}
-	}
-
-	// Update cache with both pod and strategy snapshots
-	strategyCache.updatePodSnapshot(pods)
-	strategyCache.updateStrategySnapshot(userStrategies)
-	strategyCache.setStrategies(finalStrategies)
-
-	return finalStrategies, false
-}
