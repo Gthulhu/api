@@ -47,10 +47,10 @@ const (
 
 func (r *repo) CreateUser(ctx context.Context, user *domain.User) error {
 	if user == nil {
-		return errors.New("user is nil")
+		return errors.New("nil user")
 	}
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 	if user.ID.IsZero() {
 		user.ID = bson.NewObjectID()
 	}
@@ -71,13 +71,13 @@ func (r *repo) CreateUser(ctx context.Context, user *domain.User) error {
 
 func (r *repo) UpdateUser(ctx context.Context, user *domain.User) error {
 	if user == nil {
-		return errors.New("user is nil")
+		return errors.New("nil user")
 	}
 	if user.ID.IsZero() {
 		return errors.New("user id is required")
 	}
 
-	user.UpdatedTime = time.Now().Unix()
+	user.UpdatedTime = time.Now().UnixMilli()
 	res, err := r.db.Collection(userCollection).ReplaceOne(ctx, bson.M{"_id": user.ID}, user)
 	if err != nil {
 		return fmt.Errorf("update user, err: %w", err)
@@ -90,7 +90,7 @@ func (r *repo) UpdateUser(ctx context.Context, user *domain.User) error {
 
 func (r *repo) QueryUsers(ctx context.Context, opt *domain.QueryUserOptions) error {
 	if opt == nil {
-		return errors.New("query options is nil")
+		return errors.New("nil query options")
 	}
 
 	filter := bson.M{}
@@ -116,10 +116,10 @@ func (r *repo) QueryUsers(ctx context.Context, opt *domain.QueryUserOptions) err
 
 func (r *repo) CreateRole(ctx context.Context, role *domain.Role) error {
 	if role == nil {
-		return errors.New("role is nil")
+		return errors.New("nil role")
 	}
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 	if role.ID.IsZero() {
 		role.ID = bson.NewObjectID()
 	}
@@ -140,13 +140,13 @@ func (r *repo) CreateRole(ctx context.Context, role *domain.Role) error {
 
 func (r *repo) UpdateRole(ctx context.Context, role *domain.Role) error {
 	if role == nil {
-		return errors.New("role is nil")
+		return errors.New("nil role")
 	}
 	if role.ID.IsZero() {
 		return errors.New("role id is required")
 	}
 
-	role.UpdatedTime = time.Now().Unix()
+	role.UpdatedTime = time.Now().UnixMilli()
 	res, err := r.db.Collection(roleCollection).ReplaceOne(ctx, bson.M{"_id": role.ID}, role)
 	if err != nil {
 		return fmt.Errorf("update role, err: %w", err)
@@ -159,7 +159,7 @@ func (r *repo) UpdateRole(ctx context.Context, role *domain.Role) error {
 
 func (r *repo) QueryRoles(ctx context.Context, opt *domain.QueryRoleOptions) error {
 	if opt == nil {
-		return errors.New("query options is nil")
+		return errors.New("nil query options")
 	}
 
 	filter := bson.M{}
@@ -185,10 +185,10 @@ func (r *repo) QueryRoles(ctx context.Context, opt *domain.QueryRoleOptions) err
 
 func (r *repo) CreatePermission(ctx context.Context, permission *domain.Permission) error {
 	if permission == nil {
-		return errors.New("permission is nil")
+		return errors.New("nil permission")
 	}
 
-	now := time.Now().Unix()
+	now := time.Now().UnixMilli()
 	if permission.ID.IsZero() {
 		permission.ID = bson.NewObjectID()
 	}
@@ -209,13 +209,13 @@ func (r *repo) CreatePermission(ctx context.Context, permission *domain.Permissi
 
 func (r *repo) UpdatePermission(ctx context.Context, permission *domain.Permission) error {
 	if permission == nil {
-		return errors.New("permission is nil")
+		return errors.New("nil permission")
 	}
 	if permission.ID.IsZero() {
 		return errors.New("permission id is required")
 	}
 
-	permission.UpdatedTime = time.Now().Unix()
+	permission.UpdatedTime = time.Now().UnixMilli()
 	res, err := r.db.Collection(permissionCollection).ReplaceOne(ctx, bson.M{"_id": permission.ID}, permission)
 	if err != nil {
 		return fmt.Errorf("update permission, err: %w", err)
@@ -228,7 +228,7 @@ func (r *repo) UpdatePermission(ctx context.Context, permission *domain.Permissi
 
 func (r *repo) QueryPermissions(ctx context.Context, opt *domain.QueryPermissionOptions) error {
 	if opt == nil {
-		return errors.New("query options is nil")
+		return errors.New("nil query options")
 	}
 
 	filter := bson.M{}
@@ -257,13 +257,13 @@ func (r *repo) QueryPermissions(ctx context.Context, opt *domain.QueryPermission
 
 func (r *repo) CreateAuditLog(ctx context.Context, log *domain.AuditLog) error {
 	if log == nil {
-		return errors.New("audit log is nil")
+		return errors.New("nil audit log")
 	}
 	if log.ID.IsZero() {
 		log.ID = bson.NewObjectID()
 	}
 	if log.Timestamp == 0 {
-		log.Timestamp = time.Now().Unix()
+		log.Timestamp = time.Now().UnixMilli()
 	}
 
 	res, err := r.db.Collection(auditLogCollection).InsertOne(ctx, log)
@@ -278,7 +278,7 @@ func (r *repo) CreateAuditLog(ctx context.Context, log *domain.AuditLog) error {
 
 func (r *repo) QueryAuditLogs(ctx context.Context, opt *domain.QueryAuditLogOptions) error {
 	if opt == nil {
-		return errors.New("query options is nil")
+		return errors.New("nil query options")
 	}
 
 	filter := bson.M{}
