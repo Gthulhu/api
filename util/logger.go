@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 )
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -32,4 +33,20 @@ func GetLogger() *slog.Logger {
 
 func LogErrAttr(err error) slog.Attr {
 	return slog.String("error", errors.WithStack(err).Error())
+}
+
+func InitLogger() *zerolog.Logger {
+	consoleWriter := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "15:04:05"}
+
+	logger := zerolog.New(consoleWriter).
+		With().
+		Timestamp().
+		Logger()
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	zerolog.DefaultContextLogger = &logger
+	return &logger
+}
+
+func Logger(ctx context.Context) *zerolog.Logger {
+	return zerolog.Ctx(ctx)
 }
