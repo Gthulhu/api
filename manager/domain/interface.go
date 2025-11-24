@@ -51,9 +51,9 @@ type Service interface {
 	Login(ctx context.Context, email, password string) (string, error)
 	Logout(ctx context.Context, token string) error
 	ChangePassword(ctx context.Context, email string, oldPassword, newPassword EncryptedPassword) error
-	CreateUser(ctx context.Context, user *User) error
-	DeleteUser(ctx context.Context, userID bson.ObjectID) error
-	UpdateUser(ctx context.Context, user *User) error
+	CreateUser(ctx context.Context, operator Claims, user *User) error
+	DeleteUser(ctx context.Context, operator Claims, userID bson.ObjectID) error
+	UpdateUser(ctx context.Context, operator Claims, user *User) error
 	ListAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
 	CreateRole(ctx context.Context, role *Role) error
 	UpdateRole(ctx context.Context, role *Role) error
