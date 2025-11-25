@@ -50,7 +50,7 @@ type Service interface {
 	SignUp(ctx context.Context, email, password string) error
 	Login(ctx context.Context, email, password string) (string, error)
 	Logout(ctx context.Context, token string) error
-	ChangePassword(ctx context.Context, email string, oldPassword, newPassword EncryptedPassword) error
+	ChangePassword(ctx context.Context, email string, oldPassword, newPassword string) error
 	CreateUser(ctx context.Context, operator Claims, user *User) error
 	DeleteUser(ctx context.Context, operator Claims, userID bson.ObjectID) error
 	UpdateUser(ctx context.Context, operator Claims, user *User) error

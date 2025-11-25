@@ -1,14 +1,14 @@
 package rest
 
 import (
-	"crypto/rsa"
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
-	"github.com/Gthulhu/api/config"
-	"github.com/Gthulhu/api/domain"
-	"github.com/Gthulhu/api/util"
+	"github.com/Gthulhu/api/manager/domain"
+	"github.com/Gthulhu/api/pkg/logger"
+	"go.uber.org/fx"
 )
 
 // ErrorResponse represents error response structure
@@ -25,31 +25,26 @@ type SuccessResponse struct {
 }
 
 type Params struct {
-	Service       domain.Service
-	JWTPrivateKey *rsa.PrivateKey
-	Config        *config.Config
+	fx.In
+	Svc domain.Service
 }
 
-func NewHandler(params Params) *Handler {
+func NewHandler(params Params) (*Handler, error) {
 	return &Handler{
-		Service:       params.Service,
-		jwtPrivateKey: params.JWTPrivateKey,
-		Config:        params.Config,
-	}
+		Svc: params.Svc,
+	}, nil
 }
 
 type Handler struct {
-	domain.Service
-	Config        *config.Config
-	jwtPrivateKey *rsa.PrivateKey
+	Svc domain.Service
 }
 
-func (h *Handler) JSONResponse(w http.ResponseWriter, status int, data any) {
+func (h *Handler) JSONResponse(ctx context.Context, w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	err := json.NewEncoder(w).Encode(data)
 	if err != nil {
-		util.GetLogger().Error("Failed to encode JSON response", util.LogErrAttr(err))
+		logger.Logger(ctx).Error().Err(err).Msg("Failed to encode JSON response")
 		http.Error(w, "Failed to encode JSON response", http.StatusInternalServerError)
 	}
 }
@@ -63,21 +58,21 @@ func (h *Handler) JSONBind(r *http.Request, dst any) error {
 	return nil
 }
 
-func (h *Handler) ErrorResponse(w http.ResponseWriter, status int, errMsg string) {
+func (h *Handler) ErrorResponse(ctx context.Context, w http.ResponseWriter, status int, errMsg string) {
 	resp := ErrorResponse{
 		Success: false,
 		Error:   errMsg,
 	}
-	h.JSONResponse(w, status, resp)
+	h.JSONResponse(ctx, w, status, resp)
 }
 
-func (h *Handler) SuccessResponse(w http.ResponseWriter, message string) {
+func (h *Handler) SuccessResponse(ctx context.Context, w http.ResponseWriter, message string) {
 	resp := SuccessResponse{
 		Success:   true,
 		Message:   message,
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	}
-	h.JSONResponse(w, http.StatusOK, resp)
+	h.JSONResponse(ctx, w, http.StatusOK, resp)
 }
 
 func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
@@ -86,14 +81,14 @@ func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
 		"version":   "1.0.0",
 		"endpoints": "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET), /static/ (Frontend)",
 	}
-	h.JSONResponse(w, http.StatusOK, response)
+	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }
 
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	response := map[string]interface{}{
+	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"service":   "BSS Metrics API Server",
 	}
-	h.JSONResponse(w, http.StatusOK, response)
+	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }

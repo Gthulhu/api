@@ -1,0 +1,12 @@
+services:
+  mongo:
+    container_name: mongo
+    image: mongo:8.2.2
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: test
+      MONGO_INITDB_ROOT_PASSWORD: test
+    ports:
+      - 27017:27017
+networks:
+  mysql_cluster:
+    driver: bridge
