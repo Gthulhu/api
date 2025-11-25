@@ -1,0 +1,33 @@
+[server]
+host = ":8080"
+
+
+[logging]
+level = "info"
+path = "logs/app.log"
+
+[mongodb]
+uri = "mongodb://test:test@localhost:27017/?tls=false"
+database = "appdb"
+ca_pem = """
+-----BEGIN CERTIFICATE-----
+YOUR_CERTIFICATE_HERE
+-----END CERTIFICATE-----
+"""
+
+[key]
+rsa_private_key_pem = """
+-----BEGIN RSA PRIVATE KEY-----
+YOUR_PRIVATE_KEY_HERE
+-----END RSA PRIVATE KEY-----
+"""
+
+rsa_public_key_pem = """
+-----BEGIN PUBLIC KEY-----
+YOUR_PUBLIC_KEY_HERE
+-----END PUBLIC KEY-----
+"""
+
+[account]
+admin_email = "admin@example.com"
+admin_password = "your-password-here"

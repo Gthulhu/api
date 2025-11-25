@@ -2,33 +2,59 @@ package repository
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/manager/domain"
+	"go.uber.org/fx"
+
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type Params struct {
-	Client   *mongo.Client
-	Database string
+	fx.In
+	MongoConfig config.MongoDBConfig
 }
 
 func NewRepository(params Params) (domain.Repository, error) {
-	if params.Client == nil {
-		return nil, errors.New("mongo client is required")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	mongoOpts := options.Client().ApplyURI(params.MongoConfig.URI)
+	if params.MongoConfig.CAPem != "" {
+		caPool := x509.NewCertPool()
+		caPool.AppendCertsFromPEM([]byte(params.MongoConfig.CAPem))
+		tlsConfig := &tls.Config{
+			RootCAs:            caPool,
+			MinVersion:         tls.VersionTLS12,
+			InsecureSkipVerify: false,
+		}
+		mongoOpts.SetTLSConfig(tlsConfig)
 	}
 
-	dbName := params.Database
+	client, err := mongo.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("connect to mongodb: %w", err)
+	}
+
+	if err := client.Ping(ctx, nil); err != nil {
+		return nil, fmt.Errorf("ping mongodb: %w", err)
+	}
+
+	dbName := params.MongoConfig.Database
 	if dbName == "" {
 		dbName = "manager"
 	}
 
 	return &repo{
-		client: params.Client,
-		db:     params.Client.Database(dbName),
+		client: client,
+		db:     client.Database(dbName),
 	}, nil
 }
 

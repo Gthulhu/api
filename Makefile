@@ -81,3 +81,11 @@ dev-setup: deps
 	go install github.com/gorilla/mux@latest
 
 .DEFAULT_GOAL := help
+
+local-infra-up:
+	@echo "Starting local infrastructure with Docker Compose..."
+	docker-compose -f $(CURDIR)/deployment/local/docker-compose.infra.yaml up -d
+
+local-run-manager:
+	@echo "Running Manager locally..."
+	go run main.go manager --config-dir $(CURDIR)/config/manager_config.toml --config-name manager_config

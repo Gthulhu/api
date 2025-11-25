@@ -1,2 +1,3 @@
 bin
 api
+config/manager_config.toml
