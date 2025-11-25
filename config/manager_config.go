@@ -27,9 +27,12 @@ type ManageConfig struct {
 }
 
 type MongoDBConfig struct {
-	URI      string `mapstructure:"uri"`
 	Database string `mapstructure:"database"`
 	CAPem    string `mapstructure:"ca_pem"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Port     string `mapstructure:"port"`
+	Host     string `mapstructure:"host"`
 }
 
 type KeyConfig struct {

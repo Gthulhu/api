@@ -13,7 +13,23 @@ import (
 )
 
 func NewRestApp(configName string, configDirPath string) (*fx.App, error) {
-	handlerModule, err := HandlerModule(configName, configDirPath)
+
+	cfg, err := config.InitManagerConfig(configName, configDirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	repoModule, err := RepoModule(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	serviceModule, err := ServiceModule(repoModule)
+	if err != nil {
+		return nil, err
+	}
+
+	handlerModule, err := HandlerModule(serviceModule)
 	if err != nil {
 		return nil, err
 	}

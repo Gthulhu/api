@@ -8,7 +8,10 @@ level = "info"
 path = "logs/app.log"
 
 [mongodb]
-uri = "mongodb://test:test@localhost:27017/?tls=false"
+host = "localhost"
+port = "27017"
+user = "test"
+password = "test"
 database = "appdb"
 
 [key]

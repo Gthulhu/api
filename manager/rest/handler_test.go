@@ -10,6 +10,7 @@ import (
 	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/manager/app"
 	"github.com/Gthulhu/api/manager/rest"
+	"github.com/Gthulhu/api/pkg/container"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/suite"
 	"go.uber.org/fx"
@@ -24,11 +25,25 @@ type HandlerTestSuite struct {
 	Handler *rest.Handler
 	Ctx     context.Context
 	Engine  *echo.Echo
+	*container.ContainerBuilder
 }
 
 func (suite *HandlerTestSuite) SetupSuite() {
 	suite.Ctx = context.Background()
-	handlerModule, err := app.HandlerModule("manager_config.test.toml", config.GetAbsPath("config"))
+	containerBuilder, err := container.NewContainerBuilder("")
+	suite.Require().NoError(err, "Failed to create container builder")
+	suite.ContainerBuilder = containerBuilder
+
+	cfg, err := config.InitManagerConfig("manager_config.test.toml", config.GetAbsPath("config"))
+	suite.Require().NoError(err, "Failed to initialize manager config")
+
+	repoModule, err := app.TestRepoModule(cfg, suite.ContainerBuilder)
+	suite.Require().NoError(err, "Failed to create repo module")
+
+	serviceModule, err := app.ServiceModule(repoModule)
+	suite.Require().NoError(err, "Failed to create service module")
+
+	handlerModule, err := app.HandlerModule(serviceModule)
 	suite.Require().NoError(err, "Failed to create handler module")
 	opt := fx.Options(
 		handlerModule,
@@ -43,6 +58,11 @@ func (suite *HandlerTestSuite) SetupSuite() {
 	e.HidePort = true
 	suite.Engine = e
 	suite.Handler.SetupRoutes(e)
+}
+
+func (suite *HandlerTestSuite) TearDownSuite() {
+	err := suite.ContainerBuilder.PruneAll()
+	suite.Require().NoError(err, "Failed to terminate containers")
 }
 
 func (suite *HandlerTestSuite) JSONDecode(r *httptest.ResponseRecorder, dst any) {

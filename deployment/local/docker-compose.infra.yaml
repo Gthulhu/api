@@ -1,9 +1,8 @@
 services:
   mongo:
     container_name: mongo
-    image: mongo:4.4.27
+    image: mongo:8.2.2
     environment:
-      MONGODB_CLIENT_EXTRA_FLAGS: "--authenticationDatabase admin"
       MONGO_INITDB_ROOT_USERNAME: test
       MONGO_INITDB_ROOT_PASSWORD: test
     ports:

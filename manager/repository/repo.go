@@ -23,10 +23,12 @@ type Params struct {
 }
 
 func NewRepository(params Params) (domain.Repository, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	mongoOpts := options.Client().ApplyURI(params.MongoConfig.URI)
+	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s", params.MongoConfig.User, params.MongoConfig.Password, params.MongoConfig.Host, params.MongoConfig.Port)
+
+	mongoOpts := options.Client().ApplyURI(uri)
 	if params.MongoConfig.CAPem != "" {
 		caPool := x509.NewCertPool()
 		caPool.AppendCertsFromPEM([]byte(params.MongoConfig.CAPem))
@@ -40,11 +42,11 @@ func NewRepository(params Params) (domain.Repository, error) {
 
 	client, err := mongo.Connect()
 	if err != nil {
-		return nil, fmt.Errorf("connect to mongodb: %w", err)
+		return nil, fmt.Errorf("connect to mongodb: %w, uri:%s", err, uri)
 	}
 
 	if err := client.Ping(ctx, nil); err != nil {
-		return nil, fmt.Errorf("ping mongodb: %w", err)
+		return nil, fmt.Errorf("ping mongodb: %w, uri:%s", err, uri)
 	}
 
 	dbName := params.MongoConfig.Database
