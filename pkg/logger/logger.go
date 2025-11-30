@@ -13,6 +13,7 @@ func InitLogger() *zerolog.Logger {
 	logger := zerolog.New(consoleWriter).
 		With().
 		Timestamp().
+		Caller().
 		Logger()
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	zerolog.DefaultContextLogger = &logger

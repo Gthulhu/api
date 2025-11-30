@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -28,6 +29,12 @@ var defaultArgon2idParams = Argon2idParams{
 
 func InitArgon2idParams(param Argon2idParams) {
 	defaultArgon2idParams = param
+}
+
+var argon2Regex = regexp.MustCompile(`^\$argon2(id|i|d)\$v=\d+\$m=\d+,t=\d+,p=\d+\$[A-Za-z0-9+/=]+\$[A-Za-z0-9+/=]+$`)
+
+func IsArgon2Hash(s string) bool {
+	return argon2Regex.MatchString(s)
 }
 
 func CreateArgon2Hash(password string) (string, error) {

@@ -1,12 +1,23 @@
 package config
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/spf13/viper"
 )
+
+type SecretValue string
+
+func (s SecretValue) String() string {
+	return "****"
+}
+
+func (s SecretValue) Value() string {
+	return string(s)
+}
 
 type ServerConfig struct {
 	Host string `mapstructure:"host"`
@@ -27,21 +38,26 @@ type ManageConfig struct {
 }
 
 type MongoDBConfig struct {
-	Database string `mapstructure:"database"`
-	CAPem    string `mapstructure:"ca_pem"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	Port     string `mapstructure:"port"`
-	Host     string `mapstructure:"host"`
+	Database string      `mapstructure:"database"`
+	CAPem    SecretValue `mapstructure:"ca_pem"`
+	User     string      `mapstructure:"user"`
+	Password SecretValue `mapstructure:"password"`
+	Port     string      `mapstructure:"port"`
+	Host     string      `mapstructure:"host"`
+	Options  string      `mapstructure:"options"`
+}
+
+func (mc MongoDBConfig) GetURI() string {
+	return fmt.Sprintf("mongodb://%s:%s@%s:%s/?%s", mc.User, mc.Password.Value(), mc.Host, mc.Port, mc.Options)
 }
 
 type KeyConfig struct {
-	RsaPrivateKeyPem string `mapstructure:"rsa_private_key_pem"`
+	RsaPrivateKeyPem SecretValue `mapstructure:"rsa_private_key_pem"`
 }
 
 type AccountConfig struct {
-	AdminEmail    string `mapstructure:"admin_email"`
-	AdminPassword string `mapstructure:"admin_password"`
+	AdminEmail    string      `mapstructure:"admin_email"`
+	AdminPassword SecretValue `mapstructure:"admin_password"`
 }
 
 var (

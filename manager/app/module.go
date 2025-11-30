@@ -67,7 +67,7 @@ func TestRepoModule(cfg config.ManageConfig, containerBuilder *container.Contain
 	}
 	_, err = container.RunMongoContainer(containerBuilder, "api_test_mongo", container.MongoContainerConnection{
 		Username: cfg.MongoDB.User,
-		Password: cfg.MongoDB.Password,
+		Password: string(cfg.MongoDB.Password),
 		Database: cfg.MongoDB.Database,
 		Port:     cfg.MongoDB.Port,
 		Host:     cfg.MongoDB.Host,

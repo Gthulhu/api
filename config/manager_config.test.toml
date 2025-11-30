@@ -12,7 +12,8 @@ host = "localhost"
 port = "27017"
 user = "test"
 password = "test"
-database = "appdb"
+database = "manager"
+options = "authSource=admin&ssl=false"
 
 [key]
 rsa_private_key_pem = """

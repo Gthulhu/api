@@ -1,11 +1,15 @@
 package container
 
 import (
+	"context"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+	mongo "go.mongodb.org/mongo-driver/v2/mongo"
+	mongooption "go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type MongoContainerOptions struct {
@@ -82,12 +86,27 @@ func RunMongoContainer(builder *ContainerBuilder, name string, options MongoCont
 	if err != nil {
 		return MongoContainerConnection{}, err
 	}
+
 	builder.AddContainer(resource.Container.ID, ContainerInfo{
 		Name: name,
 		Type: ContainerTypeMongoDB,
 	})
 	host := resource.GetBoundIP(strconv.Itoa(mongoDBPort) + "/tcp")
 	mongoPort := resource.GetPort(strconv.Itoa(mongoDBPort) + "/tcp")
+
+	builder.Retry(func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		uri := fmt.Sprintf("mongodb://%s:%s@%s:%s", options.Username, options.Password, host, mongoPort)
+
+		mongoOpts := mongooption.Client().ApplyURI(uri)
+		client, err := mongo.Connect(mongoOpts)
+		if err != nil {
+			return err
+		}
+		return client.Ping(ctx, nil)
+	})
+
 	return MongoContainerConnection{
 		Host:     host,
 		Port:     mongoPort,
