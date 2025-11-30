@@ -13,7 +13,7 @@ type HTTPStatusError struct {
 }
 
 func (e *HTTPStatusError) Error() string {
-	return fmt.Sprintf("(status %d) %s: %w", e.StatusCode, e.Message, e.OriginalErr)
+	return fmt.Sprintf("(status %d) %s: %v", e.StatusCode, e.Message, e.OriginalErr)
 }
 
 func NewHTTPStatusError(statusCode int, message string, originalErr error) *HTTPStatusError {

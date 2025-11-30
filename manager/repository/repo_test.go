@@ -35,6 +35,7 @@ func (suite *RepositoryTestSuite) SetupSuite() {
 
 	cfg, err := config.InitManagerConfig("manager_config.test.toml", config.GetAbsPath("config"))
 	suite.Require().NoError(err, "load test config")
+	cfg.MongoDB.Port = "27018"
 
 	conn, err := container.RunMongoContainer(builder, "api_repo_test_mongo", container.MongoContainerConnection{
 		Username: cfg.MongoDB.User,
