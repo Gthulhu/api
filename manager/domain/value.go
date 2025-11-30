@@ -1,21 +1,36 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/Gthulhu/api/pkg/util"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/x/bsonx/bsoncore"
 )
 
 type EncryptedPassword string
 
 func (value EncryptedPassword) MarshalBSONValue() (typ byte, data []byte, err error) {
-	pwdHash, err := util.CreateArgon2Hash(string(value))
-	return byte(bson.TypeString), []byte(pwdHash), err
+	valStr := string(value)
+	if util.IsArgon2Hash(valStr) {
+		return byte(bson.TypeString), bsoncore.AppendString(nil, valStr), nil
+	}
+	pwdHash, err := util.CreateArgon2Hash(valStr)
+	return byte(bson.TypeString), bsoncore.AppendString(nil, string(pwdHash)), err
 }
 
 func (value *EncryptedPassword) UnmarshalBSONValue(typ byte, data []byte) error {
-	*value = EncryptedPassword(string(data))
+	if typ != byte(bson.TypeString) {
+		return fmt.Errorf("invalid type %v for EncryptedPassword", bson.Type(typ))
+	}
+
+	str, _, ok := bsoncore.ReadString(data)
+	if !ok {
+		return fmt.Errorf("failed to read bson string")
+	}
+
+	*value = EncryptedPassword(str)
 	return nil
 }
 
@@ -33,11 +48,11 @@ func (value EncryptedPassword) Cmp(plainText string) (bool, error) {
 
 type BaseEntity struct {
 	ID          bson.ObjectID `bson:"_id,omitempty"`
-	CreatedTime int64         `bson:"created_time,omitempty"`
-	UpdatedTime int64         `bson:"updated_time,omitempty"`
-	DeletedTime int64         `bson:"deleted_time,omitempty"`
-	CreatorID   bson.ObjectID `bson:"creator_id,omitempty"`
-	UpdaterID   bson.ObjectID `bson:"updater_id,omitempty"`
+	CreatedTime int64         `bson:"createdTime,omitempty"`
+	UpdatedTime int64         `bson:"updatedTime,omitempty"`
+	DeletedTime int64         `bson:"deletedTime,omitempty"`
+	CreatorID   bson.ObjectID `bson:"creatorID,omitempty"`
+	UpdaterID   bson.ObjectID `bson:"updaterID,omitempty"`
 }
 
 func NewBaseEntity(creatorID, updaterID *bson.ObjectID) BaseEntity {

@@ -7,9 +7,9 @@ import (
 )
 
 type QueryUserOptions struct {
-	IDs    []bson.ObjectID
-	Email  string
-	Result []*User
+	IDs       []bson.ObjectID
+	UserNames []string
+	Result    []*User
 }
 
 type QueryRoleOptions struct {
@@ -47,18 +47,20 @@ type Repository interface {
 }
 
 type Service interface {
-	SignUp(ctx context.Context, email, password string) error
-	Login(ctx context.Context, email, password string) (string, error)
-	Logout(ctx context.Context, token string) error
-	ChangePassword(ctx context.Context, email string, oldPassword, newPassword string) error
-	CreateUser(ctx context.Context, operator Claims, user *User) error
-	DeleteUser(ctx context.Context, operator Claims, userID bson.ObjectID) error
-	UpdateUser(ctx context.Context, operator Claims, user *User) error
-	ListAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
-	CreateRole(ctx context.Context, role *Role) error
-	UpdateRole(ctx context.Context, role *Role) error
+	CreateNewUser(ctx context.Context, operator *Claims, username, password string) error
+	CreateAdminUserIfNotExists(ctx context.Context, username, password string) error
+	Login(ctx context.Context, email, password string) (token string, err error)
+	ChangePassword(ctx context.Context, user *Claims, oldPassword, newPassword string) error
+	ResetPassword(ctx context.Context, operator *Claims, id, newPassword string) error
+	UpdateUserPermissions(ctx context.Context, operator *Claims, id string, opt UpdateUserPermissionsOptions) error
+	VerifyJWTToken(ctx context.Context, tokenString string, permissionKey PermissionKey) (Claims, RolePolicy, error)
+	QueryUsers(ctx context.Context, opt *QueryUserOptions) error
+
+	CreateRole(ctx context.Context, operator *Claims, role *Role) error
+	UpdateRole(ctx context.Context, operator *Claims, roleID string, opt UpdateRoleOptions) error
+	DeleteRole(ctx context.Context, operator *Claims, roleID string) error
 	QueryRoles(ctx context.Context, opt *QueryRoleOptions) error
-	CreatePermission(ctx context.Context, permission *Permission) error
-	UpdatePermission(ctx context.Context, permission *Permission) error
 	QueryPermissions(ctx context.Context, opt *QueryPermissionOptions) error
+
+	ListAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
 }

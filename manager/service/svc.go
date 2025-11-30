@@ -7,6 +7,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/manager/domain"
@@ -21,7 +22,7 @@ type Params struct {
 }
 
 func NewService(params Params) (domain.Service, error) {
-	jwtPrivateKey, err := initRSAPrivateKey(params.KeyConfig.RsaPrivateKeyPem)
+	jwtPrivateKey, err := initRSAPrivateKey(string(params.KeyConfig.RsaPrivateKeyPem))
 	if err != nil {
 		return nil, fmt.Errorf("initialize RSA private key: %w", err)
 	}
@@ -29,6 +30,13 @@ func NewService(params Params) (domain.Service, error) {
 	svc := &Service{
 		Repo:          params.Repo,
 		jwtPrivateKey: jwtPrivateKey,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err = svc.CreateAdminUserIfNotExists(ctx, params.AccountConfig.AdminEmail, params.AccountConfig.AdminPassword.Value())
+	if err != nil {
+		return nil, fmt.Errorf("create admin user if not exists: %w", err)
 	}
 
 	return svc, nil
@@ -62,23 +70,5 @@ func initRSAPrivateKey(pemStr string) (*rsa.PrivateKey, error) {
 }
 
 func (svc Service) ListAuditLogs(ctx context.Context, opt *domain.QueryAuditLogOptions) error {
-	return errors.New("not implemented")
-}
-func (svc Service) CreateRole(ctx context.Context, role *domain.Role) error {
-	return errors.New("not implemented")
-}
-func (svc Service) UpdateRole(ctx context.Context, role *domain.Role) error {
-	return errors.New("not implemented")
-}
-func (svc Service) QueryRoles(ctx context.Context, opt *domain.QueryRoleOptions) error {
-	return errors.New("not implemented")
-}
-func (svc Service) CreatePermission(ctx context.Context, permission *domain.Permission) error {
-	return errors.New("not implemented")
-}
-func (svc Service) UpdatePermission(ctx context.Context, permission *domain.Permission) error {
-	return errors.New("not implemented")
-}
-func (svc Service) QueryPermissions(ctx context.Context, opt *domain.QueryPermissionOptions) error {
 	return errors.New("not implemented")
 }

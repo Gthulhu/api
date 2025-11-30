@@ -89,3 +89,10 @@ local-infra-up:
 local-run-manager:
 	@echo "Running Manager locally..."
 	go run main.go manager --config-dir $(CURDIR)/config/manager_config.toml --config-name manager_config
+
+local-run-manger-migration:
+	go install -tags 'mongodb' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+	migrate \
+	-path $(CURDIR)/manager/migration \
+	-database "mongodb://test:test@localhost:27017/manager?authSource=admin" \
+	-verbose up

@@ -3,10 +3,12 @@ package rest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/Gthulhu/api/manager/domain"
+	"github.com/Gthulhu/api/manager/errs"
 	"github.com/Gthulhu/api/pkg/logger"
 	"go.uber.org/fx"
 )
@@ -17,10 +19,18 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 }
 
+func NewSuccessResponse[T any](data *T) SuccessResponse[T] {
+	return SuccessResponse[T]{
+		Success:   true,
+		Data:      data,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
 // SuccessResponse represents the success response structure
-type SuccessResponse struct {
+type SuccessResponse[T any] struct {
 	Success   bool   `json:"success"`
-	Message   string `json:"message"`
+	Data      *T     `json:"data,omitempty"`
 	Timestamp string `json:"timestamp"`
 }
 
@@ -58,21 +68,28 @@ func (h *Handler) JSONBind(r *http.Request, dst any) error {
 	return nil
 }
 
-func (h *Handler) ErrorResponse(ctx context.Context, w http.ResponseWriter, status int, errMsg string) {
+func (h *Handler) HandleError(ctx context.Context, w http.ResponseWriter, err error) {
+	httpErr, ok := errs.IsHTTPStatusError(err)
+	if ok {
+		h.ErrorResponse(ctx, w, httpErr.StatusCode, httpErr.Message, httpErr.OriginalErr)
+		return
+	}
+	h.ErrorResponse(ctx, w, http.StatusInternalServerError, "Internal Server Error", err)
+}
+
+func (h *Handler) ErrorResponse(ctx context.Context, w http.ResponseWriter, status int, errMsg string, err error) {
+	if err != nil {
+		if status >= 500 {
+			logger.Logger(ctx).Error().Err(err).Msg(errMsg)
+		} else {
+			logger.Logger(ctx).Warn().Err(err).Msg(errMsg)
+		}
+	}
 	resp := ErrorResponse{
 		Success: false,
 		Error:   errMsg,
 	}
 	h.JSONResponse(ctx, w, status, resp)
-}
-
-func (h *Handler) SuccessResponse(ctx context.Context, w http.ResponseWriter, message string) {
-	resp := SuccessResponse{
-		Success:   true,
-		Message:   message,
-		Timestamp: time.Now().UTC().Format(time.RFC3339),
-	}
-	h.JSONResponse(ctx, w, http.StatusOK, resp)
 }
 
 func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
@@ -91,4 +108,42 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 		"service":   "BSS Metrics API Server",
 	}
 	h.JSONResponse(r.Context(), w, http.StatusOK, response)
+}
+
+type claimsKey struct{}
+
+// GetClaimsFromContext extracts domain.Claims from the request context
+func (h *Handler) GetClaimsFromContext(ctx context.Context) (domain.Claims, bool) {
+	claims, ok := ctx.Value(claimsKey{}).(domain.Claims)
+	return claims, ok
+}
+
+func (h *Handler) SetClaimsInContext(ctx context.Context, claims domain.Claims) context.Context {
+	return context.WithValue(ctx, claimsKey{}, claims)
+}
+
+type rolePolicyKey struct{}
+
+func (h *Handler) SetRolePolicyInContext(ctx context.Context, rolePolicy domain.RolePolicy) context.Context {
+	return context.WithValue(ctx, rolePolicyKey{}, rolePolicy)
+}
+
+func (h *Handler) GetRolePolicyFromContext(ctx context.Context) (domain.RolePolicy, bool) {
+	rolePolicy, ok := ctx.Value(rolePolicyKey{}).(domain.RolePolicy)
+	return rolePolicy, ok
+}
+
+func (h *Handler) VerifyResourcePolicy(ctx context.Context, resourceOwnerID string) error {
+	claims, ok := h.GetClaimsFromContext(ctx)
+	if !ok {
+		return errs.NewHTTPStatusError(http.StatusUnauthorized, "unauthorized", errors.New("claims not found in context"))
+	}
+	rolePolicy, ok := h.GetRolePolicyFromContext(ctx)
+	if !ok {
+		return errs.NewHTTPStatusError(http.StatusUnauthorized, "unauthorized", errors.New("role policy not found in context"))
+	}
+	if rolePolicy.Self && claims.UID != resourceOwnerID {
+		return errs.NewHTTPStatusError(http.StatusForbidden, "forbidden", errors.New("access to resource denied"))
+	}
+	return nil
 }

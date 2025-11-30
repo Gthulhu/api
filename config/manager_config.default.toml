@@ -11,7 +11,7 @@ host = "localhost"
 port = "27017"
 user = "test"
 password = "test"
-database = "appdb"
+database = "manager"
 ca_pem = """
 -----BEGIN CERTIFICATE-----
 YOUR_CERTIFICATE_HERE

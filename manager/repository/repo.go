@@ -26,7 +26,7 @@ func NewRepository(params Params) (domain.Repository, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	uri := fmt.Sprintf("mongodb://%s:%s@%s:%s", params.MongoConfig.User, params.MongoConfig.Password, params.MongoConfig.Host, params.MongoConfig.Port)
+	uri := params.MongoConfig.GetURI()
 
 	mongoOpts := options.Client().ApplyURI(uri)
 	if params.MongoConfig.CAPem != "" {
@@ -40,7 +40,7 @@ func NewRepository(params Params) (domain.Repository, error) {
 		mongoOpts.SetTLSConfig(tlsConfig)
 	}
 
-	client, err := mongo.Connect()
+	client, err := mongo.Connect(mongoOpts)
 	if err != nil {
 		return nil, fmt.Errorf("connect to mongodb: %w, uri:%s", err, uri)
 	}
@@ -125,8 +125,8 @@ func (r *repo) QueryUsers(ctx context.Context, opt *domain.QueryUserOptions) err
 	if len(opt.IDs) > 0 {
 		filter["_id"] = bson.M{"$in": opt.IDs}
 	}
-	if opt.Email != "" {
-		filter["email"] = opt.Email
+	if len(opt.UserNames) > 0 {
+		filter["username"] = bson.M{"$in": opt.UserNames}
 	}
 
 	cursor, err := r.db.Collection(userCollection).Find(ctx, filter)
@@ -216,14 +216,14 @@ func (r *repo) CreatePermission(ctx context.Context, permission *domain.Permissi
 		return errors.New("nil permission")
 	}
 
-	now := time.Now().UnixMilli()
+	// now := time.Now().UnixMilli()
 	if permission.ID.IsZero() {
 		permission.ID = bson.NewObjectID()
 	}
-	if permission.CreatedTime == 0 {
-		permission.CreatedTime = now
-	}
-	permission.UpdatedTime = now
+	// if permission.CreatedTime == 0 {
+	// 	permission.CreatedTime = now
+	// }
+	// permission.UpdatedTime = now
 
 	res, err := r.db.Collection(permissionCollection).InsertOne(ctx, permission)
 	if err != nil {
@@ -243,7 +243,7 @@ func (r *repo) UpdatePermission(ctx context.Context, permission *domain.Permissi
 		return errors.New("permission id is required")
 	}
 
-	permission.UpdatedTime = time.Now().UnixMilli()
+	// permission.UpdatedTime = time.Now().UnixMilli()
 	res, err := r.db.Collection(permissionCollection).ReplaceOne(ctx, bson.M{"_id": permission.ID}, permission)
 	if err != nil {
 		return fmt.Errorf("update permission, err: %w", err)

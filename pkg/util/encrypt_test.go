@@ -8,10 +8,12 @@ import (
 )
 
 func TestAngron(t *testing.T) {
-	password := "my_secure_password"
+	password := "your-password-here"
 
 	hash, err := CreateArgon2Hash(password)
 	require.NoError(t, err)
+
+	t.Log(string(hash))
 
 	ok, err := ComparePasswordAndHash(password, hash)
 	require.NoError(t, err)
