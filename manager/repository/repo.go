@@ -216,14 +216,9 @@ func (r *repo) CreatePermission(ctx context.Context, permission *domain.Permissi
 		return errors.New("nil permission")
 	}
 
-	// now := time.Now().UnixMilli()
 	if permission.ID.IsZero() {
 		permission.ID = bson.NewObjectID()
 	}
-	// if permission.CreatedTime == 0 {
-	// 	permission.CreatedTime = now
-	// }
-	// permission.UpdatedTime = now
 
 	res, err := r.db.Collection(permissionCollection).InsertOne(ctx, permission)
 	if err != nil {
@@ -243,7 +238,6 @@ func (r *repo) UpdatePermission(ctx context.Context, permission *domain.Permissi
 		return errors.New("permission id is required")
 	}
 
-	// permission.UpdatedTime = time.Now().UnixMilli()
 	res, err := r.db.Collection(permissionCollection).ReplaceOne(ctx, bson.M{"_id": permission.ID}, permission)
 	if err != nil {
 		return fmt.Errorf("update permission, err: %w", err)
