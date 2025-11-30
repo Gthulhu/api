@@ -20,6 +20,20 @@ type CreateRoleRequest struct {
 	RolePolicies []RolePolicy `json:"rolePolicies"`
 }
 
+// CreateRole godoc
+// @Summary Create role
+// @Description Create a new role with policies.
+// @Tags Roles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateRoleRequest true "Role payload"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/roles [post]
 func (h *Handler) CreateRole(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req CreateRoleRequest
@@ -64,6 +78,20 @@ type UpdateRoleRequest struct {
 	RolePolicy  *[]RolePolicy `json:"rolePolicy,omitempty"`
 }
 
+// UpdateRole godoc
+// @Summary Update role
+// @Description Update role information or policies.
+// @Tags Roles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateRoleRequest true "Role payload"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/roles [put]
 func (h *Handler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req UpdateRoleRequest
@@ -113,6 +141,20 @@ type DeleteRoleRequest struct {
 	ID string `json:"id"`
 }
 
+// DeleteRole godoc
+// @Summary Delete role
+// @Description Delete a role by ID.
+// @Tags Roles
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body DeleteRoleRequest true "Role payload"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/roles [delete]
 func (h *Handler) DeleteRole(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req DeleteRoleRequest
@@ -147,6 +189,16 @@ type ListRolesResponse struct {
 	} `json:"roles"`
 }
 
+// ListRoles godoc
+// @Summary List roles
+// @Description Retrieve available roles.
+// @Tags Roles
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse[ListRolesResponse]
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/roles [get]
 func (h *Handler) ListRoles(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	queryOpts := &domain.QueryRoleOptions{}
@@ -191,6 +243,16 @@ type ListPermissionsResponse struct {
 	} `json:"permissions"`
 }
 
+// ListPermissions godoc
+// @Summary List permissions
+// @Description Retrieve all permission keys.
+// @Tags Roles
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse[ListPermissionsResponse]
+// @Failure 401 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/permissions [get]
 func (h *Handler) ListPermissions(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	queryOpts := &domain.QueryPermissionOptions{}

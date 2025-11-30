@@ -19,6 +19,23 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 }
 
+// EmptyResponse is used for endpoints that return no data payload.
+type EmptyResponse struct{}
+
+// VersionResponse describes the version endpoint payload.
+type VersionResponse struct {
+	Message   string `json:"message"`
+	Version   string `json:"version"`
+	Endpoints string `json:"endpoints"`
+}
+
+// HealthResponse describes the health check payload.
+type HealthResponse struct {
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp"`
+	Service   string `json:"service"`
+}
+
 func NewSuccessResponse[T any](data *T) SuccessResponse[T] {
 	return SuccessResponse[T]{
 		Success:   true,
@@ -92,20 +109,34 @@ func (h *Handler) ErrorResponse(ctx context.Context, w http.ResponseWriter, stat
 	h.JSONResponse(ctx, w, status, resp)
 }
 
+// Version godoc
+// @Summary Get service version
+// @Description Returns service version and exposed endpoints.
+// @Tags System
+// @Produce json
+// @Success 200 {object} VersionResponse
+// @Router /version [get]
 func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
-	response := map[string]string{
-		"message":   "BSS Metrics API Server",
-		"version":   "1.0.0",
-		"endpoints": "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET), /static/ (Frontend)",
+	response := VersionResponse{
+		Message:   "BSS Metrics API Server",
+		Version:   "1.0.0",
+		Endpoints: "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET), /static/ (Frontend)",
 	}
 	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }
 
+// HealthCheck godoc
+// @Summary Health check
+// @Description Basic health check for readiness probes.
+// @Tags System
+// @Produce json
+// @Success 200 {object} HealthResponse
+// @Router /health [get]
 func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
-	response := map[string]any{
-		"status":    "healthy",
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"service":   "BSS Metrics API Server",
+	response := HealthResponse{
+		Status:    "healthy",
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		Service:   "BSS Metrics API Server",
 	}
 	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }
