@@ -3,13 +3,17 @@ package rest
 import (
 	"net/http"
 
+	"github.com/Gthulhu/api/docs"
 	"github.com/Gthulhu/api/manager/domain"
 	"github.com/labstack/echo/v4"
+	echoSwagger "github.com/swaggo/echo-swagger"
 )
 
 func (h *Handler) SetupRoutes(engine *echo.Echo) {
 	engine.GET("/health", h.echoHandler(h.HealthCheck))
 	engine.GET("/version", h.echoHandler(h.Version))
+	docs.SwaggerInfo.BasePath = "/"
+	engine.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	api := engine.Group("/api", echo.WrapMiddleware(LoggerMiddleware))
 	// v1 routes
