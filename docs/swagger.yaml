@@ -1,0 +1,688 @@
+definitions:
+  domain.PermissionKey:
+    enum:
+    - user.create
+    - user.read
+    - user.permission.update
+    - user.password.reset
+    - role.create
+    - role.read
+    - role.update
+    - role.delete
+    - permission.read
+    type: string
+    x-enum-varnames:
+    - CreateUser
+    - UserRead
+    - ChangeUserPermission
+    - ResetUserPassword
+    - RoleCrete
+    - RoleRead
+    - RoleUpdate
+    - RoleDelete
+    - PermissionRead
+  domain.UserStatus:
+    enum:
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - UserStatusActive
+    - UserStatusInactive
+    - UserStatusWaitChangePassword
+  rest.ChangePasswordRequest:
+    properties:
+      newPassword:
+        type: string
+      oldPassword:
+        type: string
+    type: object
+  rest.CreateRoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      rolePolicies:
+        items:
+          $ref: '#/definitions/rest.RolePolicy'
+        type: array
+    type: object
+  rest.CreateUserRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  rest.DeleteRoleRequest:
+    properties:
+      id:
+        type: string
+    type: object
+  rest.EmptyResponse:
+    type: object
+  rest.ErrorResponse:
+    properties:
+      error:
+        type: string
+      success:
+        type: boolean
+    type: object
+  rest.GetSelfUserResponse:
+    properties:
+      id:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      status:
+        $ref: '#/definitions/domain.UserStatus'
+      username:
+        type: string
+    type: object
+  rest.HealthResponse:
+    properties:
+      service:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  rest.ListPermissionsResponse:
+    properties:
+      permissions:
+        items:
+          properties:
+            description:
+              type: string
+            key:
+              $ref: '#/definitions/domain.PermissionKey'
+          type: object
+        type: array
+    type: object
+  rest.ListRolesResponse:
+    properties:
+      roles:
+        items:
+          properties:
+            description:
+              type: string
+            id:
+              type: string
+            name:
+              type: string
+            rolePolicy:
+              items:
+                $ref: '#/definitions/rest.RolePolicy'
+              type: array
+          type: object
+        type: array
+    type: object
+  rest.ListUsersResponse:
+    properties:
+      users:
+        items:
+          properties:
+            id:
+              type: string
+            roles:
+              items:
+                type: string
+              type: array
+            status:
+              $ref: '#/definitions/domain.UserStatus'
+            username:
+              type: string
+          type: object
+        type: array
+    type: object
+  rest.LoginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  rest.LoginResponse:
+    properties:
+      token:
+        type: string
+    type: object
+  rest.ResetPasswordRequest:
+    properties:
+      newPassword:
+        type: string
+      userID:
+        type: string
+    type: object
+  rest.RolePolicy:
+    properties:
+      k8sNamespace:
+        type: string
+      permissionKey:
+        $ref: '#/definitions/domain.PermissionKey'
+      policyNamespace:
+        type: string
+      self:
+        type: boolean
+    type: object
+  rest.SuccessResponse-rest_EmptyResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.EmptyResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  rest.SuccessResponse-rest_GetSelfUserResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.GetSelfUserResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  rest.SuccessResponse-rest_ListPermissionsResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.ListPermissionsResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  rest.SuccessResponse-rest_ListRolesResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.ListRolesResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  rest.SuccessResponse-rest_ListUsersResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.ListUsersResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  rest.SuccessResponse-rest_LoginResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.LoginResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
+  rest.UpdateRoleRequest:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      rolePolicy:
+        items:
+          $ref: '#/definitions/rest.RolePolicy'
+        type: array
+    type: object
+  rest.UpdateUserPermissionsRequest:
+    properties:
+      roles:
+        items:
+          type: string
+        type: array
+      status:
+        $ref: '#/definitions/domain.UserStatus'
+      userID:
+        type: string
+    type: object
+  rest.VersionResponse:
+    properties:
+      endpoints:
+        type: string
+      message:
+        type: string
+      version:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT token.
+      parameters:
+      - description: Login payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      summary: User login
+      tags:
+      - Auth
+  /api/v1/permissions:
+    get:
+      description: Retrieve all permission keys.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_ListPermissionsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List permissions
+      tags:
+      - Roles
+  /api/v1/roles:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a role by ID.
+      parameters:
+      - description: Role payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.DeleteRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete role
+      tags:
+      - Roles
+    get:
+      description: Retrieve available roles.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_ListRolesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List roles
+      tags:
+      - Roles
+    post:
+      consumes:
+      - application/json
+      description: Create a new role with policies.
+      parameters:
+      - description: Role payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create role
+      tags:
+      - Roles
+    put:
+      consumes:
+      - application/json
+      description: Update role information or policies.
+      parameters:
+      - description: Role payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update role
+      tags:
+      - Roles
+  /api/v1/users:
+    get:
+      description: Retrieve user list.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_ListUsersResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account.
+      parameters:
+      - description: User payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create user
+      tags:
+      - Users
+  /api/v1/users/password:
+    put:
+      consumes:
+      - application/json
+      description: Reset another user's password.
+      parameters:
+      - description: Reset payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reset user password
+      tags:
+      - Users
+  /api/v1/users/permissions:
+    put:
+      consumes:
+      - application/json
+      description: Update a user's roles or status.
+      parameters:
+      - description: Permissions payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.UpdateUserPermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user roles and status
+      tags:
+      - Users
+  /api/v1/users/self:
+    get:
+      description: Retrieve profile of the authenticated user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_GetSelfUserResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - Users
+  /api/v1/users/self/password:
+    put:
+      consumes:
+      - application/json
+      description: Update current user's password.
+      parameters:
+      - description: Password payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.SuccessResponse-rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change own password
+      tags:
+      - Users
+  /health:
+    get:
+      description: Basic health check for readiness probes.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HealthResponse'
+      summary: Health check
+      tags:
+      - System
+  /version:
+    get:
+      description: Returns service version and exposed endpoints.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.VersionResponse'
+      summary: Get service version
+      tags:
+      - System
+swagger: "2.0"
