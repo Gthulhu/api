@@ -64,3 +64,22 @@ type Service interface {
 
 	ListAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
 }
+
+type QueryPodsOptions struct {
+	K8SNamespace   []string
+	LabelSelectors []LabelSelector
+	CommandRegex   string
+	Result         []*Pod
+}
+
+type QueryDecisionMakerPodsOptions struct {
+	K8SNamespace       []string
+	NodeIDs            []string
+	DecisionMakerLabel LabelSelector
+	Result             []*DecisionMakerPod
+}
+
+type K8SAdapter interface {
+	QueryPods(ctx context.Context, opt *QueryPodsOptions) error
+	QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) error
+}

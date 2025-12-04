@@ -17,3 +17,19 @@ const (
 const (
 	AdminRole = "admin"
 )
+
+type NodeState int8
+
+const (
+	NodeStateUnknown NodeState = iota
+	NodeStateOnline
+	NodeStateOffline
+)
+
+type IntentState int8
+
+const (
+	IntentStateUnknown IntentState = iota
+	IntentStateInitialized
+	IntentStateSent
+)
