@@ -12,6 +12,6 @@ template: testify
 template-schema: "{{.Template}}.schema.json"
 
 packages:
-  github.com/Gthulhu/api/adapter/kubernetes:
+  github.com/Gthulhu/api/manager/domain:
     config:
       all: true

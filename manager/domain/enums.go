@@ -3,15 +3,18 @@ package domain
 type PermissionKey string
 
 const (
-	CreateUser           PermissionKey = "user.create"
-	UserRead             PermissionKey = "user.read"
-	ChangeUserPermission PermissionKey = "user.permission.update"
-	ResetUserPassword    PermissionKey = "user.password.reset"
-	RoleCrete            PermissionKey = "role.create"
-	RoleRead             PermissionKey = "role.read"
-	RoleUpdate           PermissionKey = "role.update"
-	RoleDelete           PermissionKey = "role.delete"
-	PermissionRead       PermissionKey = "permission.read"
+	CreateUser             PermissionKey = "user.create"
+	UserRead               PermissionKey = "user.read"
+	ChangeUserPermission   PermissionKey = "user.permission.update"
+	ResetUserPassword      PermissionKey = "user.password.reset"
+	RoleCrete              PermissionKey = "role.create"
+	RoleRead               PermissionKey = "role.read"
+	RoleUpdate             PermissionKey = "role.update"
+	RoleDelete             PermissionKey = "role.delete"
+	PermissionRead         PermissionKey = "permission.read"
+	ScheduleStrategyCreate PermissionKey = "schedule_strategy.create"
+	ScheduleStrategyRead   PermissionKey = "schedule_strategy.read"
+	ScheduleIntentRead     PermissionKey = "schedule_intent.read"
 )
 
 const (

@@ -32,6 +32,23 @@ type QueryAuditLogOptions struct {
 	Result       []*AuditLog
 }
 
+type QueryStrategyOptions struct {
+	IDs           []bson.ObjectID
+	K8SNamespaces []string
+	Result        []*ScheduleStrategy
+	CreatorIDs    []bson.ObjectID
+}
+
+type QueryIntentOptions struct {
+	IDs           []bson.ObjectID
+	K8SNamespaces []string
+	StrategyIDs   []bson.ObjectID
+	States        []IntentState
+	PodIDs        []string
+	Result        []*ScheduleIntent
+	CreatorIDs    []bson.ObjectID
+}
+
 type Repository interface {
 	CreateUser(ctx context.Context, user *User) error
 	UpdateUser(ctx context.Context, user *User) error
@@ -44,6 +61,11 @@ type Repository interface {
 	QueryPermissions(ctx context.Context, opt *QueryPermissionOptions) error
 	CreateAuditLog(ctx context.Context, log *AuditLog) error
 	QueryAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
+
+	InsertStrategyAndIntents(ctx context.Context, strategy *ScheduleStrategy, intents []*ScheduleIntent) error
+	BatchUpdateIntentsState(ctx context.Context, intentIDs []bson.ObjectID, newState IntentState) error
+	QueryStrategies(ctx context.Context, opt *QueryStrategyOptions) error
+	QueryIntents(ctx context.Context, opt *QueryIntentOptions) error
 }
 
 type Service interface {
@@ -62,24 +84,28 @@ type Service interface {
 	QueryRoles(ctx context.Context, opt *QueryRoleOptions) error
 	QueryPermissions(ctx context.Context, opt *QueryPermissionOptions) error
 
-	ListAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
+	CreateScheduleStrategy(ctx context.Context, operator *Claims, strategy *ScheduleStrategy) error
+	ListScheduleStrategies(ctx context.Context, filterOpts *QueryStrategyOptions) error
+	ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error
 }
 
 type QueryPodsOptions struct {
 	K8SNamespace   []string
 	LabelSelectors []LabelSelector
 	CommandRegex   string
-	Result         []*Pod
 }
 
 type QueryDecisionMakerPodsOptions struct {
 	K8SNamespace       []string
 	NodeIDs            []string
 	DecisionMakerLabel LabelSelector
-	Result             []*DecisionMakerPod
 }
 
 type K8SAdapter interface {
-	QueryPods(ctx context.Context, opt *QueryPodsOptions) error
-	QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) error
+	QueryPods(ctx context.Context, opt *QueryPodsOptions) ([]*Pod, error)
+	QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) ([]*DecisionMakerPod, error)
+}
+
+type DecisionMakerAdapter interface {
+	SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error
 }

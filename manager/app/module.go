@@ -2,6 +2,9 @@ package app
 
 import (
 	"github.com/Gthulhu/api/config"
+	"github.com/Gthulhu/api/manager/client"
+	"github.com/Gthulhu/api/manager/domain"
+	k8sadapter "github.com/Gthulhu/api/manager/k8s_adapter"
 	"github.com/Gthulhu/api/manager/repository"
 	"github.com/Gthulhu/api/manager/rest"
 	"github.com/Gthulhu/api/manager/service"
@@ -26,6 +29,24 @@ func ConfigModule(cfg config.ManageConfig) (fx.Option, error) {
 		}),
 		fx.Provide(func(managerCfg config.ManageConfig) config.AccountConfig {
 			return managerCfg.Account
+		}),
+		fx.Provide(func(managerCfg config.ManageConfig) config.K8SConfig {
+			return managerCfg.K8S
+		}),
+	), nil
+}
+
+// AdapterModule creates an Fx module that provides the K8S adapter and Decision Maker client
+func AdapterModule() (fx.Option, error) {
+	return fx.Options(
+		fx.Provide(func(k8sConfig config.K8SConfig) (domain.K8SAdapter, error) {
+			return k8sadapter.NewAdapter(k8sadapter.Options{
+				KubeConfigPath: k8sConfig.KubeConfigPath,
+				InCluster:      k8sConfig.IsInCluster,
+			})
+		}),
+		fx.Provide(func() domain.DecisionMakerAdapter {
+			return client.NewDecisionMakerClient()
 		}),
 	), nil
 }

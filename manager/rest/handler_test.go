@@ -9,10 +9,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/manager/app"
+	"github.com/Gthulhu/api/manager/domain"
 	"github.com/Gthulhu/api/manager/migration"
 	"github.com/Gthulhu/api/manager/rest"
 	"github.com/Gthulhu/api/pkg/container"
@@ -37,6 +39,9 @@ type HandlerTestSuite struct {
 	*container.ContainerBuilder
 	mongoDBClient *mongo.Client
 	mongoDBCfg    config.MongoDBConfig
+
+	MockK8SAdapter *domain.MockK8SAdapter
+	MockDMAdapter  *domain.MockDecisionMakerAdapter
 }
 
 func (suite *HandlerTestSuite) SetupSuite() {
@@ -45,6 +50,9 @@ func (suite *HandlerTestSuite) SetupSuite() {
 	containerBuilder, err := container.NewContainerBuilder("")
 	suite.Require().NoError(err, "Failed to create container builder")
 	suite.ContainerBuilder = containerBuilder
+
+	suite.MockK8SAdapter = domain.NewMockK8SAdapter(suite.T())
+	suite.MockDMAdapter = domain.NewMockDecisionMakerAdapter(suite.T())
 
 	cfg, err := config.InitManagerConfig("manager_config.test.toml", config.GetAbsPath("config"))
 	suite.Require().NoError(err, "Failed to initialize manager config")
@@ -58,6 +66,12 @@ func (suite *HandlerTestSuite) SetupSuite() {
 	handlerModule, err := app.HandlerModule(serviceModule)
 	suite.Require().NoError(err, "Failed to create handler module")
 	opt := fx.Options(
+		fx.Provide(func() domain.K8SAdapter {
+			return suite.MockK8SAdapter
+		}),
+		fx.Provide(func() domain.DecisionMakerAdapter {
+			return suite.MockDMAdapter
+		}),
 		handlerModule,
 		fx.Invoke(migration.RunMongoMigration),
 		fx.Populate(&suite.Handler),
@@ -87,6 +101,9 @@ func (suite *HandlerTestSuite) SetupTest() {
 }
 
 func (suite *HandlerTestSuite) TearDownSuite() {
+	if os.Getenv("LOCAL_TEST") == "true" {
+		return
+	}
 	err := suite.ContainerBuilder.PruneAll()
 	suite.Require().NoError(err, "Failed to terminate containers")
 }
