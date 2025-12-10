@@ -1,3 +1,17 @@
+# Mac system files
+*.DS_Store
+*.DS_STORE
+
+# VSCode settings
+*.vscode
+
+# Log
+*.log
+
+# Others
+*.build
+
 bin
 api
 config/manager_config.toml
+*.ref
