@@ -35,6 +35,7 @@ type ManageConfig struct {
 	MongoDB MongoDBConfig `mapstructure:"mongodb"`
 	Key     KeyConfig     `mapstructure:"key"`
 	Account AccountConfig `mapstructure:"account"`
+	K8S     K8SConfig     `mapstructure:"k8s"`
 }
 
 type MongoDBConfig struct {
@@ -58,6 +59,11 @@ type KeyConfig struct {
 type AccountConfig struct {
 	AdminEmail    string      `mapstructure:"admin_email"`
 	AdminPassword SecretValue `mapstructure:"admin_password"`
+}
+
+type K8SConfig struct {
+	KubeConfigPath string `mapstructure:"kube_config_path"`
+	IsInCluster    bool   `mapstructure:"in_cluster"`
 }
 
 var (

@@ -71,14 +71,14 @@ func TestPodWatcherCacheLifecycle(t *testing.T) {
 			},
 		}
 
-		if err := adapter.QueryPods(context.Background(), opt); err != nil {
+		results, err := adapter.QueryPods(context.Background(), opt)
+		if err != nil {
 			t.Fatalf("query pods after create: %v", err)
+		} else if len(results) != 1 {
+			t.Fatalf("expected 1 pod after create, got %d", len(results))
 		}
-		if len(opt.Result) != 1 {
-			t.Fatalf("expected 1 pod after create, got %d", len(opt.Result))
-		}
-		if opt.Result[0].Containers[0].ContainerID != "docker://abc" {
-			t.Fatalf("unexpected container ID: %s", opt.Result[0].Containers[0].ContainerID)
+		if results[0].Containers[0].ContainerID != "docker://abc" {
+			t.Fatalf("unexpected container ID: %s", results[0].Containers[0].ContainerID)
 		}
 	}
 
@@ -101,11 +101,12 @@ func TestPodWatcherCacheLifecycle(t *testing.T) {
 				{Key: "app", Value: "demo2"},
 			},
 		}
-		if err := adapter.QueryPods(context.Background(), opt); err != nil {
+		results, err := adapter.QueryPods(context.Background(), opt)
+		if err != nil {
 			t.Fatalf("query pods after update: %v", err)
 		}
-		if len(opt.Result) != 1 {
-			t.Fatalf("expected 1 pod after update, got %d", len(opt.Result))
+		if len(results) != 1 {
+			t.Fatalf("expected 1 pod after update, got %d", len(results))
 		}
 	}
 
@@ -127,11 +128,12 @@ func TestPodWatcherCacheLifecycle(t *testing.T) {
 				{Key: "app", Value: "demo2"},
 			},
 		}
-		if err := adapter.QueryPods(context.Background(), opt); err != nil {
+		results, err := adapter.QueryPods(context.Background(), opt)
+		if err != nil {
 			t.Fatalf("query pods after delete: %v", err)
 		}
-		if len(opt.Result) != 0 {
-			t.Fatalf("expected no pod after delete, got %d", len(opt.Result))
+		if len(results) != 0 {
+			t.Fatalf("expected no pod after delete, got %d", len(results))
 		}
 	}
 }
@@ -193,15 +195,16 @@ func TestQueryPodsUsesCache(t *testing.T) {
 		},
 	}
 
-	if err := adapter.QueryPods(context.Background(), opt); err != nil {
+	results, err := adapter.QueryPods(context.Background(), opt)
+	if err != nil {
 		t.Fatalf("QueryPods returned error: %v", err)
 	}
 
-	if len(opt.Result) != 1 {
-		t.Fatalf("expected 1 pod, got %d", len(opt.Result))
+	if len(results) != 1 {
+		t.Fatalf("expected 1 pod, got %d", len(results))
 	}
 
-	got := opt.Result[0]
+	got := results[0]
 	if got.PodID != "uid-1" {
 		t.Fatalf("unexpected PodID %q", got.PodID)
 	}
@@ -256,15 +259,16 @@ func TestQueryDecisionMakerPodsUsesCache(t *testing.T) {
 		},
 	}
 
-	if err := adapter.QueryDecisionMakerPods(context.Background(), opt); err != nil {
+	results, err := adapter.QueryDecisionMakerPods(context.Background(), opt)
+	if err != nil {
 		t.Fatalf("QueryDecisionMakerPods returned error: %v", err)
 	}
 
-	if len(opt.Result) != 1 {
-		t.Fatalf("expected 1 decision maker pod, got %d", len(opt.Result))
+	if len(results) != 1 {
+		t.Fatalf("expected 1 decision maker pod, got %d", len(results))
 	}
 
-	got := opt.Result[0]
+	got := results[0]
 	if got.NodeID != "node-1" {
 		t.Fatalf("unexpected NodeID %q", got.NodeID)
 	}

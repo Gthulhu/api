@@ -1,30 +1,46 @@
 package domain
 
-import "go.mongodb.org/mongo-driver/v2/bson"
+import (
+	"github.com/Gthulhu/api/pkg/util"
+	"go.mongodb.org/mongo-driver/v2/bson"
+)
 
 type ScheduleStrategy struct {
-	BaseEntity
+	BaseEntity        `bson:",inline"`
 	StrategyNamespace string          `bson:"strategyNamespace,omitempty"`
 	LabelSelectors    []LabelSelector `bson:"labelSelectors,omitempty"`
-	K8sNamespaces     []string        `bson:"k8sNamespaces,omitempty"`
+	K8sNamespace      []string        `bson:"k8sNamespace,omitempty"`
 	CommandRegex      string          `bson:"commandRegex,omitempty"`
 	Priority          int             `bson:"priority,omitempty"`
 	ExecutionTime     int64           `bson:"executionTime,omitempty"`
 }
 
+func NewScheduleIntent(strategy *ScheduleStrategy, pod *Pod) ScheduleIntent {
+	return ScheduleIntent{
+		BaseEntity:    NewBaseEntity(util.Ptr(strategy.CreatorID), util.Ptr(strategy.UpdaterID)),
+		StrategyID:    strategy.ID,
+		PodID:         pod.PodID,
+		NodeID:        pod.NodeID,
+		K8sNamespace:  pod.K8SNamespace,
+		CommandRegex:  strategy.CommandRegex,
+		Priority:      strategy.Priority,
+		ExecutionTime: strategy.ExecutionTime,
+		PodLabels:     pod.Labels,
+		State:         IntentStateInitialized,
+	}
+}
+
 type ScheduleIntent struct {
-	ID             bson.ObjectID   `bson:"_id,omitempty"`
-	StrategyID     bson.ObjectID   `bson:"strategyID,omitempty"`
-	PodID          string          `bson:"podID,omitempty"`
-	NodeID         string          `bson:"nodeID,omitempty"`
-	K8sNamespace   string          `bson:"k8sNamespace,omitempty"`
-	CommandRegex   string          `bson:"commandRegex,omitempty"`
-	Priority       int             `bson:"priority,omitempty"`
-	ExecutionTime  int64           `bson:"executionTime,omitempty"`
-	LabelSelectors []LabelSelector `bson:"labelSelectors,omitempty"`
-	State          IntentState     `bson:"state,omitempty"`
-	CreatedTime    int64           `bson:"createdTime,omitempty"`
-	SentTime       int64           `bson:"sentTime,omitempty"`
+	BaseEntity    `bson:",inline"`
+	StrategyID    bson.ObjectID     `bson:"strategyID,omitempty"`
+	PodID         string            `bson:"podID,omitempty"`
+	NodeID        string            `bson:"nodeID,omitempty"`
+	K8sNamespace  string            `bson:"k8sNamespace,omitempty"`
+	CommandRegex  string            `bson:"commandRegex,omitempty"`
+	Priority      int               `bson:"priority,omitempty"`
+	ExecutionTime int64             `bson:"executionTime,omitempty"`
+	PodLabels     map[string]string `bson:"podLabels,omitempty"`
+	State         IntentState       `bson:"state,omitempty"`
 }
 
 type LabelSelector struct {

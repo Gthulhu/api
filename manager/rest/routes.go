@@ -36,6 +36,11 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) {
 		apiV1.DELETE("/roles", h.echoHandler(h.DeleteRole), echo.WrapMiddleware(h.GetAuthMiddleware(domain.RoleDelete)))
 		apiV1.GET("/roles", h.echoHandler(h.ListRoles), echo.WrapMiddleware(h.GetAuthMiddleware(domain.RoleRead)))
 		apiV1.GET("/permissions", h.echoHandler(h.ListPermissions), echo.WrapMiddleware(h.GetAuthMiddleware(domain.PermissionRead)))
+
+		// strategy routes
+		apiV1.POST("/strategies", h.echoHandler(h.CreateScheduleStrategy), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleStrategyCreate)))
+		apiV1.GET("/strategies/self", h.echoHandler(h.ListSelfScheduleStrategies), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleStrategyRead)))
+		apiV1.GET("/intents/self", h.echoHandler(h.ListSelfScheduleIntents), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleIntentRead)))
 	}
 
 }

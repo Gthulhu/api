@@ -178,5 +178,123 @@
                 "name": "idx_permissions_key_unique"
             }
         ]
+    },
+    {
+        "create": "schedule_strategies",
+        "validator": {
+            "$jsonSchema": {
+                "bsonType": "object",
+                "properties": {
+                    "_id": {
+                        "bsonType": "objectId"
+                    },
+                    "createdTime": {
+                        "bsonType": "long"
+                    },
+                    "updatedTime": {
+                        "bsonType": "long"
+                    },
+                    "deletedTime": {
+                        "bsonType": "long"
+                    },
+                    "creatorID": {
+                        "bsonType": "objectId"
+                    },
+                    "updaterID": {
+                        "bsonType": "objectId"
+                    },
+                    "strategyNamespace": {
+                        "bsonType": "string"
+                    },
+                    "labelSelectors": {
+                        "bsonType": "array",
+                        "items": {
+                            "bsonType": "object",
+                            "properties": {
+                                "key": {
+                                    "bsonType": "string"
+                                },
+                                "value": {
+                                    "bsonType": "string"
+                                }
+                            }
+                        }
+                    },
+                    "k8sNamespace": {
+                        "bsonType": "array",
+                        "items": {
+                            "bsonType": "string"
+                        }
+                    },
+                    "commandRegex": {
+                        "bsonType": "string"
+                    },
+                    "priority": {
+                        "bsonType": "int"
+                    },
+                    "executionTime": {
+                        "bsonType": "long"
+                    }
+                }
+            }
+        }
+    },
+    {
+        "create": "schedule_intents",
+        "validator": {
+            "$jsonSchema": {
+                "bsonType": "object",
+                "properties": {
+                    "_id": {
+                        "bsonType": "objectId"
+                    },
+                    "createdTime": {
+                        "bsonType": "long"
+                    },
+                    "updatedTime": {
+                        "bsonType": "long"
+                    },
+                    "deletedTime": {
+                        "bsonType": "long"
+                    },
+                    "creatorID": {
+                        "bsonType": "objectId"
+                    },
+                    "updaterID": {
+                        "bsonType": "objectId"
+                    },
+                    "strategyID": {
+                        "bsonType": "objectId"
+                    },
+                    "podID": {
+                        "bsonType": "string"
+                    },
+                    "nodeID": {
+                        "bsonType": "string"
+                    },
+                    "k8sNamespace": {
+                        "bsonType": "string"
+                    },
+                    "commandRegex": {
+                        "bsonType": "string"
+                    },
+                    "priority": {
+                        "bsonType": "int"
+                    },
+                    "executionTime": {
+                        "bsonType": "long"
+                    },
+                    "podLabels": {
+                        "bsonType": "object",
+                        "additionalProperties": {
+                            "bsonType": "string"
+                        }
+                    },
+                    "state": {
+                        "bsonType": "int"
+                    }
+                }
+            }
+        }
     }
 ]

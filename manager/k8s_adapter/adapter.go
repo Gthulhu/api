@@ -132,15 +132,13 @@ func (a *Adapter) StopPodWatcher() {
 	})
 }
 
-func (a *Adapter) QueryPods(ctx context.Context, opt *domain.QueryPodsOptions) error {
+func (a *Adapter) QueryPods(ctx context.Context, opt *domain.QueryPodsOptions) ([]*domain.Pod, error) {
 	if opt == nil {
-		return domain.ErrNilQueryInput
+		return nil, domain.ErrNilQueryInput
 	}
 	if a == nil || a.client == nil {
-		return domain.ErrNoClient
+		return nil, domain.ErrNoClient
 	}
-
-	opt.Result = opt.Result[:0]
 
 	labelSelector := buildLabelSelector(opt.LabelSelectors)
 	namespaces := opt.K8SNamespace
@@ -152,15 +150,16 @@ func (a *Adapter) QueryPods(ctx context.Context, opt *domain.QueryPodsOptions) e
 	if opt.CommandRegex != "" {
 		re, err := regexp.Compile(opt.CommandRegex)
 		if err != nil {
-			return fmt.Errorf("compile command regex: %w", err)
+			return nil, fmt.Errorf("compile command regex: %w", err)
 		}
 		cmdRegex = re
 	}
 
 	pods, err := a.listPods(ctx, namespaces, labelSelector)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	results := make([]*domain.Pod, 0, len(pods))
 
 	for _, pod := range pods {
 		containers := buildContainers(pod, cmdRegex)
@@ -176,22 +175,20 @@ func (a *Adapter) QueryPods(ctx context.Context, opt *domain.QueryPodsOptions) e
 			NodeID:       pod.Spec.NodeName,
 			Containers:   containers,
 		}
-		opt.Result = append(opt.Result, result)
+		results = append(results, result)
 	}
 
-	return nil
+	return results, nil
 }
 
-func (a *Adapter) QueryDecisionMakerPods(ctx context.Context, opt *domain.QueryDecisionMakerPodsOptions) error {
+func (a *Adapter) QueryDecisionMakerPods(ctx context.Context, opt *domain.QueryDecisionMakerPodsOptions) ([]*domain.DecisionMakerPod, error) {
 	if opt == nil {
-		return domain.ErrNilQueryInput
+		return nil, domain.ErrNilQueryInput
 	}
 
 	if a == nil || a.client == nil {
-		return domain.ErrNoClient
+		return nil, domain.ErrNoClient
 	}
-
-	opt.Result = opt.Result[:0]
 
 	labelSelector := buildLabelSelector([]domain.LabelSelector{opt.DecisionMakerLabel})
 	namespaces := opt.K8SNamespace
@@ -206,9 +203,9 @@ func (a *Adapter) QueryDecisionMakerPods(ctx context.Context, opt *domain.QueryD
 
 	pods, err := a.listPods(ctx, namespaces, labelSelector)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
+	results := make([]*domain.DecisionMakerPod, 0, len(pods))
 	for _, pod := range pods {
 		if len(nodeFilters) > 0 {
 			if _, ok := nodeFilters[pod.Spec.NodeName]; !ok {
@@ -221,7 +218,7 @@ func (a *Adapter) QueryDecisionMakerPods(ctx context.Context, opt *domain.QueryD
 			host = pod.Status.HostIP
 		}
 
-		opt.Result = append(opt.Result, &domain.DecisionMakerPod{
+		results = append(results, &domain.DecisionMakerPod{
 			NodeID: pod.Spec.NodeName,
 			Port:   firstContainerPort(pod),
 			Host:   host,
@@ -229,7 +226,7 @@ func (a *Adapter) QueryDecisionMakerPods(ctx context.Context, opt *domain.QueryD
 		})
 	}
 
-	return nil
+	return results, nil
 }
 
 func (a *Adapter) listPods(ctx context.Context, namespaces []string, labelSelector string) ([]apiv1.Pod, error) {
@@ -246,7 +243,7 @@ func (a *Adapter) listPods(ctx context.Context, namespaces []string, labelSelect
 }
 
 func (a *Adapter) podsFromCache(namespaces []string, selector labels.Selector) []apiv1.Pod {
-	nsAll := len(namespaces) == 1 && namespaces[0] == metav1.NamespaceAll
+	nsAll := len(namespaces) == 0 || (len(namespaces) == 1 && namespaces[0] == metav1.NamespaceAll)
 	nsSet := make(map[string]struct{}, len(namespaces))
 	for _, ns := range namespaces {
 		nsSet[ns] = struct{}{}

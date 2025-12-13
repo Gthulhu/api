@@ -14,7 +14,10 @@
           { "permissionKey": "role.read", "self": false },
           { "permissionKey": "role.update", "self": false },
           { "permissionKey": "role.delete", "self": false },
-          { "permissionKey": "permission.read", "self": false }
+          { "permissionKey": "permission.read", "self": false },
+          { "permissionKey": "schedule_strategy.create", "self": false },
+          { "permissionKey": "schedule_strategy.read", "self": false },
+          { "permissionKey": "schedule_intent.read", "self": false }
         ],
         "created_time": { "$numberLong": "0" },
         "updated_time": { "$numberLong": "0" }

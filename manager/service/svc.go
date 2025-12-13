@@ -19,6 +19,8 @@ type Params struct {
 	Repo          domain.Repository
 	KeyConfig     config.KeyConfig
 	AccountConfig config.AccountConfig
+	K8SAdapter    domain.K8SAdapter
+	DMAdapter     domain.DecisionMakerAdapter
 }
 
 func NewService(params Params) (domain.Service, error) {
@@ -28,6 +30,8 @@ func NewService(params Params) (domain.Service, error) {
 	}
 
 	svc := &Service{
+		K8SAdapter:    params.K8SAdapter,
+		DMAdapter:     params.DMAdapter,
 		Repo:          params.Repo,
 		jwtPrivateKey: jwtPrivateKey,
 	}
@@ -43,6 +47,8 @@ func NewService(params Params) (domain.Service, error) {
 }
 
 type Service struct {
+	K8SAdapter    domain.K8SAdapter
+	DMAdapter     domain.DecisionMakerAdapter
 	Repo          domain.Repository
 	jwtPrivateKey *rsa.PrivateKey
 }

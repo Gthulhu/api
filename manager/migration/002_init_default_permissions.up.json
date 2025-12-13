@@ -55,6 +55,24 @@
                 "resource": "permission",
                 "action": "read",
                 "description": "Read permissions"
+            },
+            {
+                "key": "schedule_strategy.read",
+                "resource": "schedule_strategy",
+                "action": "read",
+                "description": "Read schedule strategies"
+            },
+            {
+                "key": "schedule_strategy.create",
+                "resource": "schedule_strategy",
+                "action": "create",
+                "description": "Create schedule strategies"
+            },
+            {
+                "key": "schedule_intent.read",
+                "resource": "schedule_intent",
+                "action": "read",
+                "description": "Read schedule intents"
             }
         ]
     }

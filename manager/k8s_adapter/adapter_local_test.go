@@ -124,11 +124,12 @@ func TestQueryPodsWithLocalKubeconfig(t *testing.T) {
 		}
 
 		waitForLocal(t, func(ctx context.Context) (bool, error) {
-			opt.Result = opt.Result[:0]
-			if err := adapter.QueryPods(ctx, opt); err != nil {
+
+			results, err := adapter.QueryPods(ctx, opt)
+			if err != nil {
 				return false, err
 			}
-			return len(opt.Result) == 1, nil
+			return len(results) == 1, nil
 		})
 
 		{ /*** Test Modifying Pod ***/
@@ -138,11 +139,12 @@ func TestQueryPodsWithLocalKubeconfig(t *testing.T) {
 
 			opt.LabelSelectors = []domain.LabelSelector{{Key: "app", Value: "demo2"}}
 			waitForLocal(t, func(ctx context.Context) (bool, error) {
-				opt.Result = opt.Result[:0]
-				if err := adapter.QueryPods(ctx, opt); err != nil {
+
+				results, err := adapter.QueryPods(ctx, opt)
+				if err != nil {
 					return false, err
 				}
-				return len(opt.Result) == 1 && opt.Result[0].Labels["app"] == "demo2", nil
+				return len(results) == 1 && results[0].Labels["app"] == "demo2", nil
 			})
 		}
 
@@ -152,11 +154,12 @@ func TestQueryPodsWithLocalKubeconfig(t *testing.T) {
 			}
 
 			waitForLocal(t, func(ctx context.Context) (bool, error) {
-				opt.Result = opt.Result[:0]
-				if err := adapter.QueryPods(ctx, opt); err != nil {
+
+				results, err := adapter.QueryPods(ctx, opt)
+				if err != nil {
 					return false, err
 				}
-				return len(opt.Result) == 0, nil
+				return len(results) == 0, nil
 			})
 		}
 	}
@@ -254,14 +257,14 @@ func TestQueryDecisionMakerPodsWithLocalKubeconfig(t *testing.T) {
 		}
 
 		waitForLocal(t, func(ctx context.Context) (bool, error) {
-			opt.Result = opt.Result[:0]
-			if err := adapter.QueryDecisionMakerPods(ctx, opt); err != nil {
+			results, err := adapter.QueryDecisionMakerPods(ctx, opt)
+			if err != nil {
 				return false, err
 			}
-			if len(opt.Result) != 1 {
+			if len(results) != 1 {
 				return false, nil
 			}
-			return opt.Result[0].NodeID != "" && opt.Result[0].Host != "", nil
+			return results[0].NodeID != "" && results[0].Host != "", nil
 		})
 
 		{ /*** Test Modifying DecisionMaker Pod ***/
@@ -271,14 +274,15 @@ func TestQueryDecisionMakerPodsWithLocalKubeconfig(t *testing.T) {
 
 			opt.DecisionMakerLabel = domain.LabelSelector{Key: "dm", Value: "dm2"}
 			waitForLocal(t, func(ctx context.Context) (bool, error) {
-				opt.Result = opt.Result[:0]
-				if err := adapter.QueryDecisionMakerPods(ctx, opt); err != nil {
+
+				results, err := adapter.QueryDecisionMakerPods(ctx, opt)
+				if err != nil {
 					return false, err
 				}
-				if len(opt.Result) != 1 {
+				if len(results) != 1 {
 					return false, nil
 				}
-				return opt.Result[0].Host != "" && opt.Result[0].NodeID != "" && opt.Result[0].Port == 8080, nil
+				return results[0].Host != "" && results[0].NodeID != "" && results[0].Port == 8080, nil
 			})
 		}
 
@@ -288,11 +292,11 @@ func TestQueryDecisionMakerPodsWithLocalKubeconfig(t *testing.T) {
 			}
 
 			waitForLocal(t, func(ctx context.Context) (bool, error) {
-				opt.Result = opt.Result[:0]
-				if err := adapter.QueryDecisionMakerPods(ctx, opt); err != nil {
+				results, err := adapter.QueryDecisionMakerPods(ctx, opt)
+				if err != nil {
 					return false, err
 				}
-				return len(opt.Result) == 0, nil
+				return len(results) == 0, nil
 			})
 		}
 	}

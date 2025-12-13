@@ -73,3 +73,8 @@ X6m7Mp9nAMhRyXhULslO3trWFbFCa2dbQkDSyBRvsb2HZtztoLVyo1mtUg==
 [account]
 admin_email = "admin@example.com"
 admin_password = "your-password-here"
+
+
+[k8s]
+kube_config_path = "/path/to/kubeconfig"
+in_cluster = false
