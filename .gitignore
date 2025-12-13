@@ -14,4 +14,5 @@
 bin
 api
 config/manager_config.toml
+config/*_config.toml
 *.ref

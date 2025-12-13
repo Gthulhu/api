@@ -26,7 +26,7 @@ func NewRepository(params Params) (domain.Repository, error) {
 	uri := params.MongoConfig.GetURI()
 
 	mongoOpts := options.Client().ApplyURI(uri)
-	if params.MongoConfig.CAPem != "" {
+	if params.MongoConfig.CAPem != "" && params.MongoConfig.CAPemEnable {
 		caPool := x509.NewCertPool()
 		caPool.AppendCertsFromPEM([]byte(params.MongoConfig.CAPem))
 		tlsConfig := &tls.Config{
@@ -39,11 +39,11 @@ func NewRepository(params Params) (domain.Repository, error) {
 
 	client, err := mongo.Connect(mongoOpts)
 	if err != nil {
-		return nil, fmt.Errorf("connect to mongodb: %w, uri:%s", err, uri)
+		return nil, fmt.Errorf("connect to mongodb: %w, uri:%s, tls:%+v", err, uri, params.MongoConfig.CAPemEnable)
 	}
 
 	if err := client.Ping(ctx, nil); err != nil {
-		return nil, fmt.Errorf("ping mongodb: %w, uri:%s", err, uri)
+		return nil, fmt.Errorf("ping mongodb: %w, uri:%s, tls:%+v", err, uri, params.MongoConfig.CAPemEnable)
 	}
 
 	dbName := params.MongoConfig.Database

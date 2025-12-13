@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Gthulhu/api/manager/domain"
+	"github.com/Gthulhu/api/pkg/logger"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -96,6 +97,7 @@ func (a *Adapter) startPodWatcher() {
 				if !ok {
 					return
 				}
+				logger.Logger(context.Background()).Debug().Msgf("pod added: %s/%s", pod.Namespace, pod.Name)
 				a.setPodCache(*pod)
 			},
 			UpdateFunc: func(_, newObj interface{}) {
@@ -103,11 +105,13 @@ func (a *Adapter) startPodWatcher() {
 				if !ok {
 					return
 				}
+				logger.Logger(context.Background()).Debug().Msgf("pod updated: %s/%s", pod.Namespace, pod.Name)
 				a.setPodCache(*pod)
 			},
 			DeleteFunc: func(obj interface{}) {
 				switch pod := obj.(type) {
 				case *apiv1.Pod:
+					logger.Logger(context.Background()).Debug().Msgf("pod deleted: %s/%s", pod.Namespace, pod.Name)
 					a.deletePodCache(string(pod.UID))
 				case cache.DeletedFinalStateUnknown:
 					if p, ok := pod.Obj.(*apiv1.Pod); ok {
@@ -121,6 +125,7 @@ func (a *Adapter) startPodWatcher() {
 
 		synced := cache.WaitForCacheSync(a.stopCh, podInformer.HasSynced)
 		a.cacheHasSynced.Store(synced)
+		logger.Logger(context.Background()).Info().Msg("starting k8s pod watcher")
 	})
 }
 
@@ -169,6 +174,7 @@ func (a *Adapter) QueryPods(ctx context.Context, opt *domain.QueryPodsOptions) (
 
 		podLabels := copyLabels(pod.Labels)
 		result := &domain.Pod{
+			Name:         pod.Name,
 			K8SNamespace: pod.Namespace,
 			Labels:       podLabels,
 			PodID:        string(pod.UID),

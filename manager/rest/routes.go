@@ -3,7 +3,7 @@ package rest
 import (
 	"net/http"
 
-	"github.com/Gthulhu/api/docs"
+	docs "github.com/Gthulhu/api/docs/manager"
 	"github.com/Gthulhu/api/manager/domain"
 	"github.com/labstack/echo/v4"
 	echoSwagger "github.com/swaggo/echo-swagger"

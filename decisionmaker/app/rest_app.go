@@ -4,42 +4,29 @@ import (
 	"context"
 
 	"github.com/Gthulhu/api/config"
-	"github.com/Gthulhu/api/manager/migration"
-	"github.com/Gthulhu/api/manager/rest"
+	"github.com/Gthulhu/api/decisionmaker/rest"
 	"github.com/Gthulhu/api/pkg/logger"
 	"github.com/labstack/echo/v4"
 	"go.uber.org/fx"
 )
 
 func NewRestApp(configName string, configDirPath string) (*fx.App, error) {
-	cfg, err := config.InitManagerConfig(configName, configDirPath)
+	cfg, err := config.InitDMConfig(configName, configDirPath)
 	if err != nil {
 		return nil, err
 	}
-
-	repoModule, err := RepoModule(cfg)
+	cfgModule, err := ConfigModule(cfg)
 	if err != nil {
 		return nil, err
 	}
-
-	adapterModule, err := AdapterModule()
-	if err != nil {
-		return nil, err
-	}
-
-	serviceModule, err := ServiceModule(adapterModule, repoModule)
-	if err != nil {
-		return nil, err
-	}
-
-	handlerModule, err := HandlerModule(serviceModule)
+	svcModule, err := ServiceModule()
+	handlerModule, err := HandlerModule(fx.Options(cfgModule, svcModule))
 	if err != nil {
 		return nil, err
 	}
 
 	app := fx.New(
 		handlerModule,
-		fx.Invoke(migration.RunMongoMigration),
 		fx.Invoke(StartRestApp),
 	)
 	return app, nil
@@ -55,10 +42,10 @@ func StartRestApp(lc fx.Lifecycle, cfg config.ServerConfig, handler *rest.Handle
 		OnStart: func(ctx context.Context) error {
 			serverHost := cfg.Host
 			if serverHost == "" {
-				serverHost = ":8080"
+				serverHost = ":8082"
 			}
 			go func() {
-				logger.Logger(ctx).Info().Msgf("starting rest server on port %s", serverHost)
+				logger.Logger(ctx).Info().Msgf("starting dm server on port %s", serverHost)
 				if err := engine.Start(serverHost); err != nil {
 					logger.Logger(ctx).Fatal().Err(err).Msgf("start rest server fail on port %s", serverHost)
 				}
@@ -66,7 +53,7 @@ func StartRestApp(lc fx.Lifecycle, cfg config.ServerConfig, handler *rest.Handle
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			logger.Logger(ctx).Info().Msg("shutting down rest server")
+			logger.Logger(ctx).Info().Msg("shutting down dm server")
 			return engine.Shutdown(ctx)
 		},
 	})

@@ -10,7 +10,7 @@ import (
 )
 
 func (suite *HandlerTestSuite) TestIntegrationRoleHandler() {
-	adminUser, adminPwd := config.GetConfig().Account.AdminEmail, config.GetConfig().Account.AdminPassword
+	adminUser, adminPwd := config.GetManagerConfig().Account.AdminEmail, config.GetManagerConfig().Account.AdminPassword
 	adminToken := suite.login(adminUser, adminPwd.Value(), http.StatusOK)
 
 	roleManager := "role_manager"

@@ -52,8 +52,8 @@ func (svc *Service) CreateScheduleStrategy(ctx context.Context, operator *domain
 	}
 
 	dmLabel := domain.LabelSelector{
-		Key:   "role",
-		Value: "decision-maker",
+		Key:   "app",
+		Value: "decisionmaker",
 	}
 
 	dmQueryOpt := &domain.QueryDecisionMakerPodsOptions{

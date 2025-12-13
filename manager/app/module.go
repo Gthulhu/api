@@ -65,8 +65,9 @@ func RepoModule(cfg config.ManageConfig) (fx.Option, error) {
 }
 
 // ServiceModule creates an Fx module that provides the service layer, return domain.Service
-func ServiceModule(repoModule fx.Option) (fx.Option, error) {
+func ServiceModule(adapterModule, repoModule fx.Option) (fx.Option, error) {
 	return fx.Options(
+		adapterModule,
 		repoModule,
 		fx.Provide(service.NewService),
 	), nil

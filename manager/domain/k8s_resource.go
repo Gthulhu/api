@@ -7,7 +7,12 @@ type DecisionMakerPod struct {
 	State  NodeState
 }
 
+func (d *DecisionMakerPod) String() string {
+	return "(" + d.NodeID + ")" + d.Host + ":" + string(rune(d.Port))
+}
+
 type Pod struct {
+	Name         string
 	K8SNamespace string
 	Labels       map[string]string
 	PodID        string

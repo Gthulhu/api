@@ -27,6 +27,7 @@ func NewScheduleIntent(strategy *ScheduleStrategy, pod *Pod) ScheduleIntent {
 		ExecutionTime: strategy.ExecutionTime,
 		PodLabels:     pod.Labels,
 		State:         IntentStateInitialized,
+		PodName:       pod.Name,
 	}
 }
 
@@ -34,6 +35,7 @@ type ScheduleIntent struct {
 	BaseEntity    `bson:",inline"`
 	StrategyID    bson.ObjectID     `bson:"strategyID,omitempty"`
 	PodID         string            `bson:"podID,omitempty"`
+	PodName       string            `bson:"podName,omitempty"`
 	NodeID        string            `bson:"nodeID,omitempty"`
 	K8sNamespace  string            `bson:"k8sNamespace,omitempty"`
 	CommandRegex  string            `bson:"commandRegex,omitempty"`

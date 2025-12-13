@@ -13,7 +13,7 @@ port = "27017"
 user = "test"
 password = "test"
 database = "manager"
-options = "authSource=admin&ssl=false"
+options = "authSource=admin&directConnection=true&ssl=false"
 
 [key]
 rsa_private_key_pem = """

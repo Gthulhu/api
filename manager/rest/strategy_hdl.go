@@ -21,6 +21,20 @@ type CreateScheduleStrategyRequest struct {
 	ExecutionTime     int64           `json:"executionTime,omitempty"`
 }
 
+// CreateScheduleStrategy godoc
+// @Summary Create schedule strategy
+// @Description Create a new schedule strategy.
+// @Tags Strategies
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateScheduleStrategyRequest true "Schedule strategy payload"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/strategies [post]
 func (h *Handler) CreateScheduleStrategy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var req CreateScheduleStrategyRequest
@@ -75,6 +89,19 @@ type ScheduleStrategy struct {
 	ExecutionTime     int64           `bson:"executionTime,omitempty"`
 }
 
+// ListSelfScheduleStrategies godoc
+// @Summary List self schedule strategies
+// @Description List schedule strategies created by the authenticated user.
+// @Tags Strategies
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse[ListSchedulerStrategiesResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/strategies/self [get]
 func (h *Handler) ListSelfScheduleStrategies(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims, ok := h.GetClaimsFromContext(ctx)
@@ -148,6 +175,19 @@ type ScheduleIntent struct {
 	State         domain.IntentState `bson:"state,omitempty"`
 }
 
+// ListSelfScheduleIntents godoc
+// @Summary List self schedule intents
+// @Description List schedule intents created by the authenticated user.
+// @Tags Strategies
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse[ListScheduleIntentsResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/intents/self [get]
 func (h *Handler) ListSelfScheduleIntents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims, ok := h.GetClaimsFromContext(ctx)

@@ -1,3 +1,6 @@
+//go:build k3d
+// +build k3d
+
 /*
 For local testing, use `k3d`.
 

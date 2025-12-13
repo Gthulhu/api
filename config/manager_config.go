@@ -39,13 +39,14 @@ type ManageConfig struct {
 }
 
 type MongoDBConfig struct {
-	Database string      `mapstructure:"database"`
-	CAPem    SecretValue `mapstructure:"ca_pem"`
-	User     string      `mapstructure:"user"`
-	Password SecretValue `mapstructure:"password"`
-	Port     string      `mapstructure:"port"`
-	Host     string      `mapstructure:"host"`
-	Options  string      `mapstructure:"options"`
+	Database    string      `mapstructure:"database"`
+	CAPem       SecretValue `mapstructure:"ca_pem"`
+	CAPemEnable bool        `mapstructure:"ca_pem_enable"`
+	User        string      `mapstructure:"user"`
+	Password    SecretValue `mapstructure:"password"`
+	Port        string      `mapstructure:"port"`
+	Host        string      `mapstructure:"host"`
+	Options     string      `mapstructure:"options"`
 }
 
 func (mc MongoDBConfig) GetURI() string {
@@ -70,7 +71,7 @@ var (
 	managerCfg *ManageConfig
 )
 
-func GetConfig() *ManageConfig {
+func GetManagerConfig() *ManageConfig {
 	return managerCfg
 }
 

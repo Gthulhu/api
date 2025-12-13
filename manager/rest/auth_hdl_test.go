@@ -10,7 +10,7 @@ import (
 )
 
 func (suite *HandlerTestSuite) TestIntegrationAuthHandler() {
-	adminUser, adminPwd := config.GetConfig().Account.AdminEmail, config.GetConfig().Account.AdminPassword
+	adminUser, adminPwd := config.GetManagerConfig().Account.AdminEmail, config.GetManagerConfig().Account.AdminPassword
 	adminToken := suite.login(adminUser, adminPwd.Value(), http.StatusOK)
 
 	// Test creating a new user

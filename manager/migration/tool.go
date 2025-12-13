@@ -24,7 +24,9 @@ func RunMongoMigration(mongodbCfg config.MongoDBConfig) error {
 	dbName := mongodbCfg.Database
 
 	mongoOpts := options.Client().ApplyURI(uri)
-	if mongodbCfg.CAPem != "" {
+	hasCa := false
+	if mongodbCfg.CAPem != "" && mongodbCfg.CAPemEnable {
+		hasCa = true
 		caPool := x509.NewCertPool()
 		caPool.AppendCertsFromPEM([]byte(mongodbCfg.CAPem))
 		tlsConfig := &tls.Config{
@@ -36,7 +38,11 @@ func RunMongoMigration(mongodbCfg config.MongoDBConfig) error {
 	}
 	client, err := mongo.Connect(ctx, mongoOpts)
 	if err != nil {
-		return fmt.Errorf("connect to mongodb: %w, uri:%s", err, uri)
+		return fmt.Errorf("connect to mongodb: %w, uri:%s hasCa:%+v", err, uri, hasCa)
+	}
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("ping mongodb: %w, uri:%s, hasCa:%+v", err, uri, hasCa)
 	}
 
 	driverConfig := &mongodbmigrate.Config{

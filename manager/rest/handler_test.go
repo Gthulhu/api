@@ -60,18 +60,21 @@ func (suite *HandlerTestSuite) SetupSuite() {
 	repoModule, err := app.TestRepoModule(cfg, suite.ContainerBuilder)
 	suite.Require().NoError(err, "Failed to create repo module")
 
-	serviceModule, err := app.ServiceModule(repoModule)
-	suite.Require().NoError(err, "Failed to create service module")
-
-	handlerModule, err := app.HandlerModule(serviceModule)
-	suite.Require().NoError(err, "Failed to create handler module")
-	opt := fx.Options(
+	adapterModule := fx.Options(
 		fx.Provide(func() domain.K8SAdapter {
 			return suite.MockK8SAdapter
 		}),
 		fx.Provide(func() domain.DecisionMakerAdapter {
 			return suite.MockDMAdapter
 		}),
+	)
+
+	serviceModule, err := app.ServiceModule(adapterModule, repoModule)
+	suite.Require().NoError(err, "Failed to create service module")
+
+	handlerModule, err := app.HandlerModule(serviceModule)
+	suite.Require().NoError(err, "Failed to create handler module")
+	opt := fx.Options(
 		handlerModule,
 		fx.Invoke(migration.RunMongoMigration),
 		fx.Populate(&suite.Handler),
@@ -96,7 +99,7 @@ func (suite *HandlerTestSuite) SetupTest() {
 	suite.Require().NoError(err, "Failed to clean up MongoDB")
 	err = migration.RunMongoMigration(suite.mongoDBCfg)
 	suite.Require().NoError(err, "Failed to run MongoDB migrations")
-	err = suite.Handler.Svc.CreateAdminUserIfNotExists(suite.Ctx, config.GetConfig().Account.AdminEmail, config.GetConfig().Account.AdminPassword.Value())
+	err = suite.Handler.Svc.CreateAdminUserIfNotExists(suite.Ctx, config.GetManagerConfig().Account.AdminEmail, config.GetManagerConfig().Account.AdminPassword.Value())
 	suite.Require().NoError(err, "Failed to create admin user")
 }
 

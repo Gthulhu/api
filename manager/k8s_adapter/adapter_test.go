@@ -1,3 +1,6 @@
+//go:build k3d
+// +build k3d
+
 package k8sadapter
 
 import (

@@ -86,6 +86,10 @@ local-infra-up:
 	@echo "Starting local infrastructure with Docker Compose..."
 	docker-compose -f $(CURDIR)/deployment/local/docker-compose.infra.yaml up -d
 
+local-infra-down:
+	@echo "Stopping local infrastructure with Docker Compose..."
+	docker-compose -f $(CURDIR)/deployment/local/docker-compose.infra.yaml down
+
 local-run-manager:
 	@echo "Running Manager locally..."
 	go run main.go manager --config-dir $(CURDIR)/config/manager_config.toml --config-name manager_config
@@ -96,3 +100,18 @@ local-run-manger-migration:
 	-path $(CURDIR)/manager/migration \
 	-database "mongodb://test:test@localhost:27017/manager?authSource=admin" \
 	-verbose up
+
+
+local-build-image.amd64:
+	@echo "Building local Docker image for API Server..."
+	docker build -f Dockerfile.amd64 -t gthulhu-api:local .
+
+gen-manager-swagger:
+	@echo "Generating Swagger documentation for Manager..."
+	swag init -g ./manager/cmd/cmd.go  -o docs/manager
+
+local-kind-setup:
+	sh $(CURDIR)/deployment/kind/local_setup.sh
+
+local-kind-teardown:
+	sh $(CURDIR)/deployment/kind/local_teardown.sh
