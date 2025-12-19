@@ -11,21 +11,36 @@ import (
 
 	"github.com/Gthulhu/api/decisionmaker/domain"
 	"github.com/Gthulhu/api/pkg/logger"
+	"github.com/Gthulhu/api/pkg/util"
 )
 
 func NewService() Service {
-	return Service{}
+	return Service{
+		schedulingIntentsMap: util.NewGenericMap[string, []*domain.SchedulingIntents](),
+	}
 }
 
 type Service struct {
+	schedulingIntentsMap *util.GenericMap[string, []*domain.SchedulingIntents]
 }
 
 const (
-	procDir = "/proc"
+	procDir      = "/proc"
+	pauseCommand = "pause"
 )
 
+// ListAllSchedulingIntents retrieves all stored scheduling intents
+func (svc *Service) ListAllSchedulingIntents(ctx context.Context) ([]*domain.SchedulingIntents, error) {
+	intents := []*domain.SchedulingIntents{}
+	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
+		intents = append(intents, value...)
+		return true
+	})
+	return intents, nil
+}
+
+// ProcessIntents processes a list of scheduling intents and updates the internal map
 func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent) error {
-	// Placeholder for processing intents
 	podInfos, err := svc.GetAllPodInfos(ctx)
 	if err != nil {
 		return err
@@ -33,8 +48,29 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 	for _, intent := range intents {
 		podInfo := podInfos[intent.PodID]
 		logger.Logger(ctx).Info().Msgf("Processing intent for PodName:%s PodID: %s on NodeID: %s, Process:%+v", intent.PodName, intent.PodID, intent.NodeID, podInfo)
-		// Add logic to handle the intent
-
+		labels := []domain.LabelSelector{}
+		for key, value := range intent.PodLabels {
+			labels = append(labels, domain.LabelSelector{
+				Key:   key,
+				Value: value,
+			})
+		}
+		if podInfo != nil && len(podInfo.Processes) > 0 {
+			for _, process := range podInfo.Processes {
+				if process.Command == pauseCommand {
+					continue
+				}
+				schedulingIntent := &domain.SchedulingIntents{
+					Priority:      intent.Priority > 0,
+					ExecutionTime: uint64(intent.ExecutionTime),
+					PID:           process.PID,
+					CommandRegex:  intent.CommandRegex,
+					Selectors:     labels,
+				}
+				logger.Logger(ctx).Info().Msgf("Created SchedulingIntent: %+v for Process PID: %d", schedulingIntent, process.PID)
+				svc.schedulingIntentsMap.Store(fmt.Sprintf("%s-%d", intent.PodID, process.PID), []*domain.SchedulingIntents{schedulingIntent})
+			}
+		}
 	}
 	logger.Logger(ctx).Info().Msgf("Discovered pods: %+v", podInfos)
 	return nil

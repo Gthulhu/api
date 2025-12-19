@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Gthulhu/api/decisionmaker/domain"
 	"github.com/Gthulhu/api/decisionmaker/service"
 	"github.com/Gthulhu/api/manager/errs"
 	"github.com/Gthulhu/api/pkg/logger"
@@ -122,7 +121,7 @@ func (h *Handler) Version(w http.ResponseWriter, r *http.Request) {
 	response := VersionResponse{
 		Message:   "BSS Metrics API Server",
 		Version:   "1.0.0",
-		Endpoints: "/api/v1/auth/token (POST), /api/v1/metrics (POST), /api/v1/pods/pids (GET), /api/v1/scheduling/strategies (GET, POST), /health (GET), /static/ (Frontend)",
+		Endpoints: "/health, /version, POST_/api/v1/intents, GET_/api/v1/scheduling/strategies",
 	}
 	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }
@@ -143,52 +142,9 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }
 
-type HandleIntentsRequest struct {
-	Intents []Intent `json:"intents"`
-}
-
-type Intent struct {
-	PodName       string            `json:"podName,omitempty"`
-	PodID         string            `json:"podID,omitempty"`
-	NodeID        string            `json:"nodeID,omitempty"`
-	K8sNamespace  string            `json:"k8sNamespace,omitempty"`
-	CommandRegex  string            `json:"commandRegex,omitempty"`
-	Priority      int               `json:"priority,omitempty"`
-	ExecutionTime int64             `json:"executionTime,omitempty"`
-	PodLabels     map[string]string `json:"podLabels,omitempty"`
-}
-
-func (h *Handler) HandleIntents(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var req HandleIntentsRequest
-	err := h.JSONBind(r, &req)
-	if err != nil {
-		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Invalid request payload", err)
-		return
-	}
-	intents := make([]*domain.Intent, 0, len(req.Intents))
-	for _, intent := range req.Intents {
-		intents = append(intents, &domain.Intent{
-			PodName:       intent.PodName,
-			PodID:         intent.PodID,
-			NodeID:        intent.NodeID,
-			K8sNamespace:  intent.K8sNamespace,
-			CommandRegex:  intent.CommandRegex,
-			Priority:      intent.Priority,
-			ExecutionTime: intent.ExecutionTime,
-			PodLabels:     intent.PodLabels,
-		})
-	}
-	// TODO: forward intents to the ebpf user space agent
-	h.Service.ProcessIntents(r.Context(), intents)
-	h.JSONResponse(ctx, w, http.StatusOK, NewSuccessResponse[EmptyResponse](nil))
-}
-
 func (h *Handler) SetupRoutes(engine *echo.Echo) {
 	engine.GET("/health", h.echoHandler(h.HealthCheck))
 	engine.GET("/version", h.echoHandler(h.Version))
-	// docs.SwaggerInfo.BasePath = "/"
-	// engine.GET("/swagger/*", echoSwagger.WrapHandler)
 
 	api := engine.Group("/api", echo.WrapMiddleware(middleware.LoggerMiddleware))
 	// v1 routes
@@ -196,6 +152,7 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) {
 		apiV1 := api.Group("/v1")
 		// auth routes
 		apiV1.POST("/intents", h.echoHandler(h.HandleIntents))
+		apiV1.GET("/scheduling/strategies", h.echoHandler(h.ListIntents))
 	}
 
 }
