@@ -3,25 +3,49 @@ package service
 import (
 	"bufio"
 	"context"
+	"crypto/rsa"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/decisionmaker/domain"
 	"github.com/Gthulhu/api/pkg/logger"
 	"github.com/Gthulhu/api/pkg/util"
+	"github.com/prometheus/client_golang/prometheus"
+	"go.uber.org/fx"
 )
 
-func NewService() Service {
-	return Service{
-		schedulingIntentsMap: util.NewGenericMap[string, []*domain.SchedulingIntents](),
+type Params struct {
+	fx.In
+	TokenConfig config.TokenConfig
+}
+
+func NewService(params Params) (Service, error) {
+	privateKey, err := util.InitRSAPrivateKey(string(params.TokenConfig.RsaPrivateKeyPem))
+	if err != nil {
+		return Service{}, fmt.Errorf("failed to initialize JWT private key: %v", err)
 	}
+	svc := Service{
+		schedulingIntentsMap: util.NewGenericMap[string, []*domain.SchedulingIntents](),
+		metricCollector:      NewMetricCollector(util.GetMachineID()),
+		jwtPrivateKey:        privateKey,
+	}
+
+	err = prometheus.Register(svc.metricCollector)
+	if err != nil {
+		return Service{}, fmt.Errorf("failed to register metric collector: %v", err)
+	}
+	return svc, nil
 }
 
 type Service struct {
 	schedulingIntentsMap *util.GenericMap[string, []*domain.SchedulingIntents]
+	metricCollector      *MetricCollector
+	jwtPrivateKey        *rsa.PrivateKey
+	tokenConfig          config.TokenConfig
 }
 
 const (
@@ -211,4 +235,8 @@ func (svc *Service) getProcessInfo(rootDir string, pid int) (domain.PodProcess, 
 	}
 
 	return process, nil
+}
+
+func (svc *Service) UpdateMetrics(ctx context.Context, newMetricSet *domain.MetricSet) {
+	svc.metricCollector.UpdateMetrics(newMetricSet)
 }

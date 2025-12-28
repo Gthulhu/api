@@ -6,11 +6,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/decisionmaker/service"
 	"github.com/Gthulhu/api/manager/errs"
 	"github.com/Gthulhu/api/pkg/logger"
 	"github.com/Gthulhu/api/pkg/middleware"
 	"github.com/labstack/echo/v4"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/fx"
 )
 
@@ -54,17 +56,20 @@ type SuccessResponse[T any] struct {
 
 type Params struct {
 	fx.In
-	Service service.Service
+	Service     service.Service
+	TokenConfig config.TokenConfig
 }
 
 func NewHandler(params Params) (*Handler, error) {
 	return &Handler{
-		Service: params.Service,
+		Service:     params.Service,
+		TokenConfig: params.TokenConfig,
 	}, nil
 }
 
 type Handler struct {
-	Service service.Service
+	Service     service.Service
+	TokenConfig config.TokenConfig
 }
 
 func (h *Handler) JSONResponse(ctx context.Context, w http.ResponseWriter, status int, data any) {
@@ -142,7 +147,12 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	h.JSONResponse(r.Context(), w, http.StatusOK, response)
 }
 
-func (h *Handler) SetupRoutes(engine *echo.Echo) {
+func (h *Handler) SetupRoutes(engine *echo.Echo) error {
+	authMiddleware, err := GetJwtAuthMiddleware(h.TokenConfig)
+	if err != nil {
+		return err
+	}
+
 	engine.GET("/health", h.echoHandler(h.HealthCheck))
 	engine.GET("/version", h.echoHandler(h.Version))
 
@@ -151,10 +161,18 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) {
 	{
 		apiV1 := api.Group("/v1")
 		// auth routes
-		apiV1.POST("/intents", h.echoHandler(h.HandleIntents))
-		apiV1.GET("/scheduling/strategies", h.echoHandler(h.ListIntents))
+		apiV1.POST("/intents", h.echoHandler(h.HandleIntents), echo.WrapMiddleware(authMiddleware))
+		apiV1.GET("/scheduling/strategies", h.echoHandler(h.ListIntents), echo.WrapMiddleware(authMiddleware))
+		apiV1.POST("/metrics", h.echoHandler(h.UpdateMetrics), echo.WrapMiddleware(authMiddleware))
+		// token routes
+		apiV1.POST("/auth/token", h.echoHandler(h.GenTokenHandler))
 	}
 
+	// set up prometheus metrics endpoint
+	{
+		engine.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	}
+	return nil
 }
 
 func (h *Handler) echoHandler(handlerFunc func(w http.ResponseWriter, r *http.Request)) echo.HandlerFunc {

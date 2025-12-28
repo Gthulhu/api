@@ -7,23 +7,38 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
+	cache "github.com/Code-Hex/go-generics-cache"
+	"github.com/Gthulhu/api/config"
 	dmrest "github.com/Gthulhu/api/decisionmaker/rest"
 	"github.com/Gthulhu/api/manager/domain"
 	"github.com/Gthulhu/api/pkg/logger"
 )
 
-func NewDecisionMakerClient() domain.DecisionMakerAdapter {
+func NewDecisionMakerClient(keyConfig config.KeyConfig) domain.DecisionMakerAdapter {
 	return &DecisionMakerClient{
-		Client: http.DefaultClient,
+		Client:         http.DefaultClient,
+		tokenPublicKey: keyConfig.DMPublicKeyPem.Value(),
+		clientID:       keyConfig.ClientID,
+		tokenCache:     cache.New[string, string](),
 	}
 }
 
 type DecisionMakerClient struct {
 	*http.Client
+
+	tokenPublicKey string
+	clientID       string
+	tokenCache     *cache.Cache[string, string]
 }
 
-func (dm DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decisionMaker *domain.DecisionMakerPod, intents []*domain.ScheduleIntent) error {
+func (dm *DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decisionMaker *domain.DecisionMakerPod, intents []*domain.ScheduleIntent) error {
+	token, err := dm.GetToken(ctx, decisionMaker)
+	if err != nil {
+		return err
+	}
+
 	logger.Logger(ctx).Debug().Msgf("Sending %d scheduling intents to decision maker pod (host:%s nodeID:%s port:%d)", len(intents), decisionMaker.Host, decisionMaker.NodeID, decisionMaker.Port)
 
 	reqPayload := dmrest.HandleIntentsRequest{
@@ -52,8 +67,7 @@ func (dm DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decision
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	// TODO: add authentication headers if needed
-
+	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := dm.Client.Do(req)
 	if err != nil {
 		return err
@@ -63,4 +77,45 @@ func (dm DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decision
 		return fmt.Errorf("decision maker %s returned non-OK status: %s", decisionMaker, resp.Status)
 	}
 	return nil
+}
+
+func (dm *DecisionMakerClient) GetToken(ctx context.Context, decisionMaker *domain.DecisionMakerPod) (string, error) {
+	if token, ok := dm.tokenCache.Get(decisionMaker.NodeID); ok {
+		return token, nil
+	}
+
+	req := dmrest.TokenRequest{
+		PublicKey: dm.tokenPublicKey,
+		ClientID:  dm.clientID,
+	}
+	jsonBody, err := json.Marshal(req)
+	if err != nil {
+		return "", err
+	}
+	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/auth/token"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return "", err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := dm.Client.Do(httpReq)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("decision maker %s returned non-OK status: %s", decisionMaker, resp.Status)
+	}
+	var tokenResp dmrest.SuccessResponse[dmrest.TokenResponse]
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&tokenResp)
+	if err != nil {
+		return "", err
+	}
+
+	ttl := time.Now().Unix() - tokenResp.Data.ExpiredAt - 60
+
+	dm.tokenCache.Set(decisionMaker.NodeID, tokenResp.Data.Token, cache.WithExpiration(time.Duration(ttl)*time.Second))
+	return tokenResp.Data.Token, nil
+
 }

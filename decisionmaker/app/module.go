@@ -16,14 +16,15 @@ func ConfigModule(cfg config.DecisionMakerConfig) (fx.Option, error) {
 		fx.Provide(func(dmCfg config.DecisionMakerConfig) config.ServerConfig {
 			return dmCfg.Server
 		}),
+		fx.Provide(func(dmCfg config.DecisionMakerConfig) config.TokenConfig {
+			return dmCfg.Token
+		}),
 	), nil
 }
 
 func ServiceModule() (fx.Option, error) {
 	return fx.Options(
-		fx.Provide(func() service.Service {
-			return service.NewService()
-		}),
+		fx.Provide(service.NewService),
 	), nil
 }
 

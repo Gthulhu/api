@@ -97,6 +97,13 @@ spec:
                         });
                         print("Replica set initiated");
                       }
+                      while (true) {
+                        const hello = db.hello();
+                        if (hello.isWritablePrimary) {
+                          break;
+                        }
+                        sleep(1000);
+                      }
                       db = db.getSiblingDB("admin");
                       try {
                         db.getUser("'"$MONGO_ROOT_USERNAME"'");

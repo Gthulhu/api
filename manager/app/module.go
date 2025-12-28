@@ -45,9 +45,7 @@ func AdapterModule() (fx.Option, error) {
 				InCluster:      k8sConfig.IsInCluster,
 			})
 		}),
-		fx.Provide(func() domain.DecisionMakerAdapter {
-			return client.NewDecisionMakerClient()
-		}),
+		fx.Provide(client.NewDecisionMakerClient),
 	), nil
 }
 

@@ -115,3 +115,10 @@ local-kind-setup:
 
 local-kind-teardown:
 	sh $(CURDIR)/deployment/kind/local_teardown.sh
+
+gen-mock:
+	@go install github.com/vektra/mockery/v3@v3.5.5
+	@mockery
+
+test-all:
+	go test ./... -count=1 -p=1

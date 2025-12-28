@@ -9,6 +9,7 @@ import (
 type DecisionMakerConfig struct {
 	Server  ServerConfig  `mapstructure:"server"`
 	Logging LoggingConfig `mapstructure:"logging"`
+	Token   TokenConfig   `mapstructure:"token"`
 }
 
 var (
@@ -44,4 +45,9 @@ func InitDMConfig(configName string, configPath string) (DecisionMakerConfig, er
 	}
 	dmConfig = &cfg
 	return cfg, nil
+}
+
+type TokenConfig struct {
+	RsaPrivateKeyPem SecretValue `mapstructure:"rsa_private_key_pem"`
+	TokenDurationHr  int         `mapstructure:"token_duration_hr"` // in hours
 }

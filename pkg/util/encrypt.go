@@ -2,8 +2,12 @@ package util
 
 import (
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/subtle"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -112,4 +116,59 @@ func decodeHash(encodedHash string) (p *Argon2idParams, salt, hash []byte, err e
 	p.KeyLength = uint32(len(hash))
 
 	return p, salt, hash, nil
+}
+
+func InitRSAPrivateKey(pemStr string) (*rsa.PrivateKey, error) {
+	block, _ := pem.Decode([]byte(pemStr))
+	if block == nil {
+		return nil, fmt.Errorf("failed to decode PEM block containing private key")
+	}
+
+	key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		// Try PKCS8 format
+		keyInterface, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse private key: %v", err)
+		}
+		var ok bool
+		key, ok = keyInterface.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("private key is not RSA")
+		}
+	}
+	return key, nil
+}
+
+func RSAPublicKeyToPEM(pub *rsa.PublicKey) ([]byte, error) {
+	derBytes, err := x509.MarshalPKIXPublicKey(pub)
+	if err != nil {
+		return nil, err
+	}
+
+	block := &pem.Block{
+		Type:  "PUBLIC KEY",
+		Bytes: derBytes,
+	}
+
+	return pem.EncodeToMemory(block), nil
+}
+
+func PEMToRSAPublicKey(pemBytes string) (*rsa.PublicKey, error) {
+	block, _ := pem.Decode([]byte(pemBytes))
+	if block == nil {
+		return nil, errors.New("failed to decode PEM block")
+	}
+
+	pubAny, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	pub, ok := pubAny.(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("not an RSA public key")
+	}
+
+	return pub, nil
 }

@@ -55,6 +55,8 @@ func (mc MongoDBConfig) GetURI() string {
 
 type KeyConfig struct {
 	RsaPrivateKeyPem SecretValue `mapstructure:"rsa_private_key_pem"`
+	DMPublicKeyPem   SecretValue `mapstructure:"dm_public_key_pem"`
+	ClientID         string      `mapstructure:"client_id"`
 }
 
 type AccountConfig struct {

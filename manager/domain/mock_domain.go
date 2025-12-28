@@ -1322,6 +1322,120 @@ func (_c *MockService_DeleteRole_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// ListScheduleIntents provides a mock function for the type MockService
+func (_mock *MockService) ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error {
+	ret := _mock.Called(ctx, filterOpts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListScheduleIntents")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *QueryIntentOptions) error); ok {
+		r0 = returnFunc(ctx, filterOpts)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_ListScheduleIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListScheduleIntents'
+type MockService_ListScheduleIntents_Call struct {
+	*mock.Call
+}
+
+// ListScheduleIntents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filterOpts *QueryIntentOptions
+func (_e *MockService_Expecter) ListScheduleIntents(ctx interface{}, filterOpts interface{}) *MockService_ListScheduleIntents_Call {
+	return &MockService_ListScheduleIntents_Call{Call: _e.mock.On("ListScheduleIntents", ctx, filterOpts)}
+}
+
+func (_c *MockService_ListScheduleIntents_Call) Run(run func(ctx context.Context, filterOpts *QueryIntentOptions)) *MockService_ListScheduleIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *QueryIntentOptions
+		if args[1] != nil {
+			arg1 = args[1].(*QueryIntentOptions)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ListScheduleIntents_Call) Return(err error) *MockService_ListScheduleIntents_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_ListScheduleIntents_Call) RunAndReturn(run func(ctx context.Context, filterOpts *QueryIntentOptions) error) *MockService_ListScheduleIntents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListScheduleStrategies provides a mock function for the type MockService
+func (_mock *MockService) ListScheduleStrategies(ctx context.Context, filterOpts *QueryStrategyOptions) error {
+	ret := _mock.Called(ctx, filterOpts)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListScheduleStrategies")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *QueryStrategyOptions) error); ok {
+		r0 = returnFunc(ctx, filterOpts)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_ListScheduleStrategies_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListScheduleStrategies'
+type MockService_ListScheduleStrategies_Call struct {
+	*mock.Call
+}
+
+// ListScheduleStrategies is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filterOpts *QueryStrategyOptions
+func (_e *MockService_Expecter) ListScheduleStrategies(ctx interface{}, filterOpts interface{}) *MockService_ListScheduleStrategies_Call {
+	return &MockService_ListScheduleStrategies_Call{Call: _e.mock.On("ListScheduleStrategies", ctx, filterOpts)}
+}
+
+func (_c *MockService_ListScheduleStrategies_Call) Run(run func(ctx context.Context, filterOpts *QueryStrategyOptions)) *MockService_ListScheduleStrategies_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *QueryStrategyOptions
+		if args[1] != nil {
+			arg1 = args[1].(*QueryStrategyOptions)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ListScheduleStrategies_Call) Return(err error) *MockService_ListScheduleStrategies_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_ListScheduleStrategies_Call) RunAndReturn(run func(ctx context.Context, filterOpts *QueryStrategyOptions) error) *MockService_ListScheduleStrategies_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Login provides a mock function for the type MockService
 func (_mock *MockService) Login(ctx context.Context, email string, password string) (string, error) {
 	ret := _mock.Called(ctx, email, password)
