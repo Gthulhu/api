@@ -24,7 +24,7 @@ else
   echo "Cluster '$CLUSTER' already exists."
 fi
 
-docker build -f  $PROJECT_ROOT/Dockerfile.amd64 -t gthulhu-api:local .
+docker build -f  $PROJECT_ROOT/Dockerfile -t gthulhu-api:local .
 
 docker pull mongo:8.2.2
 kind load docker-image mongo:8.2.2 --name "$CLUSTER"

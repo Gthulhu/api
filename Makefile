@@ -104,7 +104,7 @@ local-run-manger-migration:
 
 local-build-image.amd64:
 	@echo "Building local Docker image for API Server..."
-	docker build -f Dockerfile.amd64 -t gthulhu-api:local .
+	docker build -f Dockerfile -t gthulhu-api:local .
 
 gen-manager-swagger:
 	@echo "Generating Swagger documentation for Manager..."
