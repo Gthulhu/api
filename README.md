@@ -1,402 +1,420 @@
-# BSS Metrics API Server
+# Gthulhu API Server
 
-This is an API Server implemented in Golang for receiving and processing BSS (BPF Scheduler Subsystem) metrics data and providing system information.
+Gthulhu API Server is a Golang-based API server designed to integrate the Linux kernel scheduler (sched_ext) with the Kubernetes orchestration system. The core objective of this project is to collect scheduling metrics from eBPF programs and provide intelligent scheduling decisions to the kernel scheduler based on Kubernetes Pod labels and user-defined strategies.
 
 ## DEMO
 
-Click the image below to see our DEMO on YouTube!
+Click the image below to watch our DEMO on YouTube!
 
 [![IMAGE ALT TEXT HERE](https://github.com/Gthulhu/Gthulhu/blob/main/assets/preview.png?raw=true)](https://www.youtube.com/watch?v=R4EmZ18P954)
 
-## Features
+## System Architecture
 
-- Receive BSS metrics data sent by clients
-- Query pod-to-PID mappings from the system
-- Provide RESTful API in JSON format
-- Include health check endpoint
-- Support CORS
-- Request logging capability
-- Error handling and validation
-- Kubernetes integration for pod label information
-- Configurable scheduling strategies based on pod labels
+This API Server adopts a dual-mode architecture, consisting of two independent services:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                              Gthulhu Architecture                               │
+├─────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                 │
+│   ┌─────────────┐         ┌─────────────────────┐         ┌─────────────────┐  │
+│   │    User     │ ──────▶ │      Manager        │ ──────▶ │    MongoDB      │  │
+│   │  (Web UI)   │         │ (Central Management)│         │  (Persistence)  │  │
+│   └─────────────┘         └──────────┬──────────┘         └─────────────────┘  │
+│                                      │                                          │
+│                                      │ Query Pods via K8s API                   │
+│                                      ▼                                          │
+│                           ┌─────────────────────┐                               │
+│                           │   Kubernetes API    │                               │
+│                           │   (Pod Informer)    │                               │
+│                           └─────────────────────┘                               │
+│                                      │                                          │
+│              ┌───────────────────────┼───────────────────────┐                  │
+│              │                       │                       │                  │
+│              ▼                       ▼                       ▼                  │
+│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐          │
+│   │ Decision Maker  │     │ Decision Maker  │     │ Decision Maker  │          │
+│   │   (Node 1)      │     │   (Node 2)      │     │   (Node N)      │          │
+│   └────────┬────────┘     └────────┬────────┘     └────────┬────────┘          │
+│            │                       │                       │                    │
+│            ▼                       ▼                       ▼                    │
+│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐          │
+│   │  sched_ext      │     │  sched_ext      │     │  sched_ext      │          │
+│   │ (eBPF Scheduler)│     │ (eBPF Scheduler)│     │ (eBPF Scheduler)│          │
+│   └─────────────────┘     └─────────────────┘     └─────────────────┘          │
+│                                                                                 │
+└─────────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Manager Mode
+
+**Purpose**: Serves as the central management service, responsible for handling user requests, managing scheduling strategies, user authentication, and access control.
+
+**Key Features**:
+- User authentication and authorization (JWT Token)
+- Role and permission management (RBAC)
+- CRUD operations for scheduling strategies
+- Monitor Pod status via Kubernetes Informer
+- Distribute scheduling intents to Decision Makers on each node
+- Data persistence to MongoDB
+
+**Default Port**: `:8081`
+
+### Decision Maker Mode
+
+**Purpose**: Deployed on each Kubernetes node (as DaemonSet), responsible for receiving scheduling intents and interacting with the local sched_ext scheduler.
+
+**Key Features**:
+- Receive scheduling intents from Manager
+- Scan `/proc` filesystem to discover Pod processes
+- Convert scheduling strategies into concrete PID-based scheduling decisions
+- Collect eBPF scheduler metrics
+- Expose metrics via Prometheus endpoint
+
+**Default Port**: `:8080`
+
+## Core Features
+
+### Manager Service Features
+- **User Management**: Create, query users, password reset
+- **Role & Permission Management**: RBAC role management, permission assignment
+- **Scheduling Strategy Management**: Create Pod label-based scheduling strategies
+- **Scheduling Intent Tracking**: Track strategy execution status
+- **Kubernetes Integration**: Real-time Pod monitoring via Pod Informer
+- **JWT Authentication**: RSA asymmetric encryption Token authentication
+
+### Decision Maker Service Features
+- **Intent Processing**: Receive and process scheduling intents from Manager
+- **Process Discovery**: Parse cgroup information to map PIDs to Pods
+- **Scheduling Strategy Provider**: Provide concrete PID scheduling strategies to sched_ext
+- **Metrics Collection**: Collect and expose eBPF scheduler metrics to Prometheus
+- **Token Authentication**: Validate requests from Manager
 
 ## API Endpoints
 
-### 1. Submit Metrics Data
-- **URL**: `/api/v1/metrics`
-- **Method**: `POST`
-- **Content-Type**: `application/json`
+### Manager Endpoints
 
-#### Request Format
-```json
-{
-  "usersched_pid": 1234,
-  "nr_queued": 10,
-  "nr_scheduled": 5,
-  "nr_running": 2,
-  "nr_online_cpus": 8,
-  "nr_user_dispatches": 100,
-  "nr_kernel_dispatches": 50,
-  "nr_cancel_dispatches": 2,
-  "nr_bounce_dispatches": 1,
-  "nr_failed_dispatches": 0,
-  "nr_sched_congested": 3
-}
-```
+#### System Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/version` | GET | Version information |
+| `/swagger/*` | GET | Swagger documentation |
 
-#### Success Response
-```json
-{
-  "success": true,
-  "message": "Metrics received successfully",
-  "timestamp": "2025-06-19T10:30:00Z"
-}
-```
+#### Authentication Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/auth/login` | POST | User login |
 
-#### Error Response
-```json
-{
-  "success": false,
-  "error": "Invalid JSON format: ..."
-}
-```
+#### User Management Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/users` | POST | Create user |
+| `/api/v1/users` | GET | List users |
+| `/api/v1/users/password` | PUT | Reset password |
+| `/api/v1/users/permissions` | PUT | Update permissions |
+| `/api/v1/users/self/password` | PUT | Change own password |
+| `/api/v1/users/self` | GET | Get own information |
 
-### 2. Get Pod-PID Mappings
-- **URL**: `/api/v1/pods/pids`
-- **Method**: `GET`
+#### Role Management Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/roles` | POST | Create role |
+| `/api/v1/roles` | GET | List roles |
+| `/api/v1/roles` | PUT | Update role |
+| `/api/v1/roles` | DELETE | Delete role |
+| `/api/v1/permissions` | GET | List permissions |
 
-#### Response
-```json
-{
-  "success": true,
-  "message": "Pod-PID mappings retrieved successfully",
-  "timestamp": "2025-06-25T13:50:21Z",
-  "pods": [
-    {
-      "pod_name": "",
-      "namespace": "",
-      "pod_uid": "65979e01-4cb1-4d08-9dba-45530253ff00",
-      "container_id": "5148a146ffbbe8672f11494843d54b8769d2eccc677c02027fc09aba192e3c67",
-      "processes": [
-        {
-          "pid": 717720,
-          "command": "pause",
-          "ppid": 717576
-        },
-        {
-          "pid": 718001,
-          "command": "loki",
-          "ppid": 717576
-        }
-      ]
-    }
-  ]
-}
-```
+#### Scheduling Strategy Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/v1/strategies` | POST | Create scheduling strategy |
+| `/api/v1/strategies/self` | GET | List own strategies |
+| `/api/v1/intents/self` | GET | List own scheduling intents |
 
-#### Error Response
-```json
-{
-  "success": false,
-  "error": "Failed to get pod-pid mappings: ..."
-}
-```
+### Decision Maker Endpoints
 
-### 3. Get and Set Scheduling Strategies
-- **URL**: `/api/v1/scheduling/strategies`
-- **Methods**: `GET`, `POST`
-- **Content-Type**: `application/json`
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/version` | GET | Version information |
+| `/metrics` | GET | Prometheus metrics |
+| `/api/v1/auth/token` | POST | Get authentication token |
+| `/api/v1/intents` | POST | Receive scheduling intents |
+| `/api/v1/scheduling/strategies` | GET | Get scheduling strategies |
+| `/api/v1/metrics` | POST | Update metrics data |
 
-#### GET Response
-```json
-{
-  "success": true,
-  "message": "Scheduling strategies retrieved successfully",
-  "timestamp": "2025-06-19T10:30:00Z",
-  "scheduling": [
-    {
-      "priority": true,
-      "execution_time": 20000000,
-      "pid": 718001
-    },
-    {
-      "priority": false,
-      "execution_time": 10000000,
-      "pid": 717720
-    }
-  ]
-}
-```
+## Data Structures
 
-#### POST Request Format
-```json
-{
-  "strategies": [
-    {
-      "priority": true,
-      "execution_time": 20000000,
-      "selectors": [
-        {
-          "key": "nf",
-          "value": "upf"
-        }
-      ]
-    },
-    {
-      "priority": false,
-      "execution_time": 10000000,
-      "pid": 717720
-    }
-  ]
-}
-```
+### ScheduleStrategy
+| Field | Type | Description |
+|-------|------|-------------|
+| `strategyNamespace` | string | Strategy namespace |
+| `labelSelectors` | []LabelSelector | Pod label selectors |
+| `k8sNamespace` | []string | Kubernetes namespaces |
+| `commandRegex` | string | Process command regex |
+| `priority` | int | Priority level |
+| `executionTime` | int64 | Execution time (nanoseconds) |
 
-#### POST Success Response
-```json
-{
-  "success": true,
-  "message": "Scheduling strategies saved successfully",
-  "timestamp": "2025-06-19T10:30:00Z"
-}
-```
+### ScheduleIntent
+| Field | Type | Description |
+|-------|------|-------------|
+| `podID` | string | Pod UID |
+| `podName` | string | Pod name |
+| `nodeID` | string | Node name |
+| `k8sNamespace` | string | Kubernetes namespace |
+| `commandRegex` | string | Process command regex |
+| `priority` | int | Priority level |
+| `executionTime` | int64 | Execution time (nanoseconds) |
+| `podLabels` | map[string]string | Pod labels |
+| `state` | string | Intent state |
 
-### 4. Health Check
-- **URL**: `/health`
-- **Method**: `GET`
-
-#### Response
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-06-19T10:30:00Z",
-  "service": "BSS Metrics API Server"
-}
-```
-
-### 5. API Information
-- **URL**: `/`
-- **Method**: `GET`
+### MetricSet
+| Field | Type | Description |
+|-------|------|-------------|
+| `usersched_last_run_at` | uint64 | User scheduler last run timestamp |
+| `nr_queued` | uint64 | Number of tasks in scheduling queue |
+| `nr_scheduled` | uint64 | Number of scheduled tasks |
+| `nr_running` | uint64 | Number of running tasks |
+| `nr_online_cpus` | uint64 | Number of online CPUs |
+| `nr_user_dispatches` | uint64 | Number of user-space dispatches |
+| `nr_kernel_dispatches` | uint64 | Number of kernel-space dispatches |
+| `nr_cancel_dispatches` | uint64 | Number of cancelled dispatches |
+| `nr_bounce_dispatches` | uint64 | Number of bounce dispatches |
+| `nr_failed_dispatches` | uint64 | Number of failed dispatches |
+| `nr_sched_congested` | uint64 | Number of scheduler congestion events |
 
 ## Quick Start
+
+### 0. Test Environment Setup
+
+For local development, you need to set up a MongoDB instance. You can use Docker to start the infrastructure:
+
+```bash
+# Start MongoDB using Docker
+$ docker run --rm --network host mongo:6.0 mongosh "mongodb://test:test@localhost:27017/?authSource=admin&authMechanism=SCRAM-SHA-256" --eval 'db.runCommand({ ping: 1 })'
+```
+
+After starting MongoDB, create the required user and verify the connection:
+
+```bash
+# Create a test user with root privileges in MongoDB
+$ docker exec mongodb mongosh --eval 'db.getSiblingDB("admin").createUser({user:"test",pwd:"test",roles:[{role:"root",db:"admin"}]})'
+
+# Verify the connection with the created user credentials
+$ docker exec mongodb mongosh "mongodb://test:test@localhost:27017/?authSource=admin&authMechanism=SCRAM-SHA-256" --eval 'db.runCommand({ ping: 1 })'
+```
 
 ### 1. Install Dependencies
 ```bash
 go mod tidy
 ```
 
-### 2. Start Service
-```bash
-go run main.go
+### 2. Configuration
+
+#### Manager Configuration (`config/manager_config.toml`)
+```toml
+[server]
+host = ":8081"
+
+[logging]
+level = "info"
+
+[mongodb]
+host = "localhost"
+port = "27017"
+user = "test"
+password = "test"
+database = "manager"
+
+[k8s]
+kube_config_path = "/path/to/.kube/config"
+in_cluster = false
+
+[key]
+rsa_private_key_pem = "..."
+dm_public_key_pem = "..."
+client_id = "your-client-id"
+
+[account]
+admin_email = "admin@example.com"
+admin_password = "your-password"
 ```
 
-The service will start on `http://localhost:8080`.
+#### Decision Maker Configuration (`config/dm_config.toml`)
+```toml
+[server]
+host = ":8080"
 
-### 3. Start Service with Kubernetes integration
+[logging]
+level = "info"
+
+[token]
+rsa_private_key_pem = "..."
+token_duration_hr = 24
+```
+
+### 3. Start Services
+
+#### Start Manager
 ```bash
-# Use local Kubernetes config
-go run main.go --kubeconfig=$HOME/.kube/config
+go run main.go manager
 
-# Run in-cluster (when deployed in Kubernetes)
-go run main.go --in-cluster=true
+# With custom configuration
+go run main.go manager -c manager_config -d /path/to/config
+```
+
+#### Start Decision Maker
+```bash
+go run main.go decisionmaker
+
+# With custom configuration
+go run main.go decisionmaker -c dm_config -d /path/to/config
 ```
 
 ### 4. Test API
 
-#### Submit metrics data
+#### Health Check
 ```bash
-curl -X POST http://localhost:8080/api/v1/metrics \
-  -H "Content-Type: application/json" \
-  -d '{
-    "usersched_pid": 1234,
-    "nr_queued": 10,
-    "nr_scheduled": 5,
-    "nr_running": 2,
-    "nr_online_cpus": 8,
-    "nr_user_dispatches": 100,
-    "nr_kernel_dispatches": 50,
-    "nr_cancel_dispatches": 2,
-    "nr_bounce_dispatches": 1,
-    "nr_failed_dispatches": 0,
-    "nr_sched_congested": 3
-  }'
-```
+# Manager
+curl http://localhost:8081/health
 
-#### Check health status
-```bash
+# Decision Maker
 curl http://localhost:8080/health
 ```
 
-#### Query Pod-PID Mappings
+#### User Login
 ```bash
-# Get all pod-pid mappings
-curl -X GET http://localhost:8080/api/v1/pods/pids
-
-# Format output with jq for better readability
-curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.'
-
-# Get only specific information (example: extract pod UIDs and process counts)
-curl -s -X GET http://localhost:8080/api/v1/pods/pids | jq '.pods[] | {pod_uid: .pod_uid, process_count: (.processes | length)}'
-```
-
-#### Get scheduling strategies
-```bash
-curl -X GET http://localhost:8080/api/v1/scheduling/strategies
-```
-
-#### Set scheduling strategies
-```bash
-curl -X POST http://localhost:8080/api/v1/scheduling/strategies \
+curl -X POST http://localhost:8081/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "strategies": [
-      {
-        "priority": true,
-        "execution_time": 20000000,
-        "selectors": [
-          {
-            "key": "nf",
-            "value": "upf"
-          }
-        ]
-      },
-      {
-        "priority": false,
-        "execution_time": 10000000,
-        "pid": 717720
-      }
-    ]
+    "email": "admin@example.com",
+    "password": "your-password"
   }'
 ```
 
-## Data Structure Description
-
-### BssData Structure
-| Field | Type | Description |
-|-------|------|-------------|
-| `usersched_pid` | uint32 | PID of the userspace scheduler |
-| `nr_queued` | uint64 | Number of tasks queued in the userspace scheduler |
-| `nr_scheduled` | uint64 | Number of tasks scheduled by the userspace scheduler |
-| `nr_running` | uint64 | Number of tasks currently running in the userspace scheduler |
-| `nr_online_cpus` | uint64 | Number of online CPUs in the system |
-| `nr_user_dispatches` | uint64 | Number of userspace dispatches |
-| `nr_kernel_dispatches` | uint64 | Number of kernel space dispatches |
-| `nr_cancel_dispatches` | uint64 | Number of cancelled dispatches |
-| `nr_bounce_dispatches` | uint64 | Number of bounce dispatches |
-| `nr_failed_dispatches` | uint64 | Number of failed dispatches |
-| `nr_sched_congested` | uint64 | Number of scheduler congestion occurrences |
-
-### PodInfo Structure
-| Field | Type | Description |
-|-------|------|-------------|
-| `pod_name` | string | Name of the pod (currently empty, extracted from metadata) |
-| `namespace` | string | Namespace of the pod (currently empty, extracted from metadata) |
-| `pod_uid` | string | Unique identifier of the pod |
-| `container_id` | string | Container ID within the pod |
-| `processes` | []PodProcess | List of processes running in the pod |
-
-### PodProcess Structure
-| Field | Type | Description |
-|-------|------|-------------|
-| `pid` | int | Process ID |
-| `command` | string | Command name of the process |
-| `ppid` | int | Parent Process ID (optional) |
-
-### SchedulingStrategy Structure
-| Field | Type | Description |
-|-------|------|-------------|
-| `priority` | bool | Indicates if this is a high-priority strategy |
-| `execution_time` | uint64 | Desired execution time in nanoseconds |
-| `pid` | uint32 | Optional specific PID to apply this strategy |
-| `selectors` | []LabelSelector | Optional selectors to match pods for this strategy |
-
-### LabelSelector Structure
-| Field | Type | Description |
-|-------|------|-------------|
-| `key` | string | Label key to match |
-| `value` | string | Expected value of the label |
-
-## Development and Extension
-
-### Suggested New Features
-1. **Data Persistence**: Store received metrics to database (such as PostgreSQL, MongoDB)
-2. **Data Analytics**: Add statistical and analytical features
-3. **Alert System**: Set up alert rules based on metrics values
-4. **Authentication & Authorization**: Add API key or JWT authentication
-5. **Batch Processing**: Support batch submission of multiple metrics data
-6. **Monitoring Dashboard**: Build web interface to visualize metrics data
-
-### Architecture Description
-- Uses Gorilla Mux for routing
-- Includes middleware for CORS and logging
-- Structured error handling and response format
-- Timestamps use RFC3339 format
-- Kubernetes client integration with caching
-- Support for both in-cluster and out-of-cluster operation
-
-## Kubernetes 整合
-
-此 API 伺服器可以與 Kubernetes 整合，以獲取真實的 Pod 標籤資訊。它支援兩種運行模式：
-
-### 在 Kubernetes 集群內運行
-
-當在 Kubernetes 集群內部署時，API 伺服器會自動使用 ServiceAccount 連接到 Kubernetes API。完整的部署清單可在 `k8s/deployment.yaml` 中找到，其中包含：
-
-- 具備必要權限的 ServiceAccount
-- 具有健康檢查的 Deployment
-- 用於公開 API 的 Service
-
-部署命令：
+#### Create Scheduling Strategy
 ```bash
-kubectl apply -f k8s/deployment.yaml
+curl -X POST http://localhost:8081/api/v1/strategies \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-token>" \
+  -d '{
+    "strategyNamespace": "default",
+    "labelSelectors": [
+      {"key": "app", "value": "nginx"}
+    ],
+    "k8sNamespace": ["default"],
+    "priority": 10,
+    "executionTime": 20000000
+  }'
 ```
 
-### 在集群外運行
+## Kubernetes Deployment
 
-當在 Kubernetes 集群外運行時，API 伺服器會嘗試使用 kubeconfig 文件連接到 Kubernetes API。預設情況下，它會使用 `~/.kube/config` 路徑，您也可以通過設置 `KUBECONFIG` 環境變數或使用 `--kubeconfig` 參數來指定不同的路徑：
+### Deployment Architecture
+- **Manager**: Deployed as a Deployment, typically single replica
+- **Decision Maker**: Deployed as a DaemonSet on every node
 
-```bash
-export KUBECONFIG=/path/to/your/kubeconfig
-go run main.go
-
-# 或者
-go run main.go --kubeconfig=/path/to/your/kubeconfig
+### Deployment Manifest Locations
+```
+deployment/
+├── kind/                    # Kind local test environment
+│   ├── local_setup.sh
+│   ├── decisonmaker/
+│   │   ├── daemonset.yaml
+│   │   └── service.yaml
+│   ├── manager/
+│   │   ├── deployment.yaml
+│   │   └── service.yaml
+│   └── mongo/
+│       ├── secret.yaml
+│       ├── service.yaml
+│       └── statefulset.yaml
+└── local/
+    └── docker-compose.infra.yaml  # Docker Compose for local development
 ```
 
-### 實時 Pod 標籤更新
-
-API 伺服器會定期刷新其 Pod 標籤緩存，以確保即使在 Pod 標籤變更時，調度策略也能正確應用。
-
-### 降級到模擬數據
-
-如果無法連接到 Kubernetes API，系統會自動降級使用模擬數據。這對於開發和測試環境很有用。
-
-### Docker 映像建立
-
-要建立 Docker 映像：
+### Quick Deployment
 ```bash
-docker build -t bss-metrics-api:latest .
+# Local testing with Kind
+cd deployment/kind
+./local_setup.sh
+
+# Or manual deployment
+kubectl apply -f deployment/kind/mongo/
+kubectl apply -f deployment/kind/manager/
+kubectl apply -f deployment/kind/decisonmaker/
 ```
 
-### 容器映像釋出
+### RBAC Permission Requirements
+Manager requires the following Kubernetes RBAC permissions:
+- `pods`: list, watch, get
+- `namespaces`: list, get
 
-此專案使用 GitHub Actions 自動建置和釋出容器映像到 GitHub Container Registry (ghcr.io)。
+## Development Guide
 
-**自動釋出觸發條件：**
-- 當推送到 `main` 分支時
-- 當建立新的版本標籤時（例如：`v1.0.0`）
+### Project Structure
+```
+.
+├── main.go                 # Entry point, uses Cobra for subcommands
+├── config/                 # Configuration definition and parsing
+├── manager/               # Manager service
+│   ├── app/              # Application initialization
+│   ├── cmd/              # Cobra commands
+│   ├── domain/           # Domain models and interfaces
+│   ├── k8s_adapter/      # Kubernetes client
+│   ├── client/           # Decision Maker client
+│   ├── repository/       # MongoDB data access
+│   ├── rest/             # HTTP handlers
+│   ├── service/          # Business logic
+│   └── migration/        # Database migrations
+├── decisionmaker/        # Decision Maker service
+│   ├── app/             # Application initialization
+│   ├── cmd/             # Cobra commands
+│   ├── domain/          # Domain models
+│   ├── rest/            # HTTP handlers
+│   └── service/         # Business logic and process discovery
+├── pkg/                  # Shared packages
+│   ├── logger/          # Logging utilities
+│   ├── middleware/      # HTTP middleware
+│   └── util/            # Common utility functions
+└── deployment/          # Deployment configurations
+```
 
-**映像標籤規則：**
-- `main` 分支的推送將標記為 `main` 和 `main-<sha>`
-- 版本標籤將標記為 `v1.0.0`、`1.0`、`1` 等
+### Tech Stack
+- **Web Framework**: Echo v4
+- **Dependency Injection**: Uber fx
+- **CLI**: Cobra
+- **Logging**: zerolog
+- **Database**: MongoDB (mongo-driver v2)
+- **Kubernetes Client**: client-go
+- **Metrics Collection**: Prometheus client_golang
+- **Configuration Management**: Viper
 
-**使用已釋出的映像：**
+### Build and Test
 ```bash
-# 使用最新的 main 版本
+# Build
+make build
+
+# Run tests
+make test
+
+# Build Docker image
+make image
+```
+
+## Container Images
+
+This project uses GitHub Actions to automatically build and publish to GitHub Container Registry.
+
+```bash
+# Use latest version
 docker pull ghcr.io/gthulhu/api:main
 
-# 使用特定版本
+# Use specific version
 docker pull ghcr.io/gthulhu/api:v1.0.0
 ```
 
 ## License
+
 This project is open source.
