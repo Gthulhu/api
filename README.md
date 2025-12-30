@@ -288,8 +288,8 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8081/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@example.com",
-    "password": "your-password"
+    "username": "admin@example.com",
+    "password": "your-password-here"
   }'
 ```
 
