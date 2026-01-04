@@ -69,6 +69,7 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 	if err != nil {
 		return err
 	}
+	// TODO: update intent map and update merkle tree
 	for _, intent := range intents {
 		podInfo := podInfos[intent.PodID]
 		logger.Logger(ctx).Info().Msgf("Processing intent for PodName:%s PodID: %s on NodeID: %s, Process:%+v", intent.PodName, intent.PodID, intent.NodeID, podInfo)
