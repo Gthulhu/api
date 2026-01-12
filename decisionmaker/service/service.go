@@ -84,6 +84,9 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 				if process.Command == pauseCommand {
 					continue
 				}
+				if !regexp.MustCompile(intent.CommandRegex).MatchString(process.Command) {
+					continue
+				}
 				schedulingIntent := &domain.SchedulingIntents{
 					Priority:      intent.Priority > 0,
 					ExecutionTime: uint64(intent.ExecutionTime),
