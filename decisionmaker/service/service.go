@@ -186,9 +186,10 @@ func (svc *Service) parseCgroupToPodInfo(rootDir string, line string, pid int, p
 	return nil
 }
 
-var (
-	podRegex = regexp.MustCompile(`pod([0-9a-fA-F_]+)(?:\.slice)?`)
-)
+// Support multiple cgroup formats:
+// - systemd: kubelet-kubepods-pod20da609e_6973_4463_a1f9_2db9bcc5becc.slice (underscores)
+// - cgroupfs: /kubepods/burstable/pod31e4e721-a5a0-421a-ae1d-b7971ae30d6e/ (dashes)
+var podRegex = regexp.MustCompile(`pod([0-9a-fA-F]{8}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{12})`)
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
 func (svc *Service) getPodInfoFromCgroup(cgroupPath string) (podUID string, containerID string, err error) {
