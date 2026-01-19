@@ -1,116 +1,97 @@
-# Copilot Instructions for BSS Metrics API Server
+# Gthulhu API Server - Copilot Instructions
 
-## Project Overview
-This is a Go-based API server that bridges Linux kernel scheduler metrics (BSS) with Kubernetes orchestration. The core purpose is to collect scheduling metrics from eBPF programs and provide intelligent scheduling strategies back to the kernel based on Kubernetes pod labels and process patterns.
+## Architecture Overview
 
-## Architecture & Key Components
+This is a **dual-mode Go API server** that bridges Linux kernel scheduling (sched_ext) with Kubernetes:
 
-### Core Data Flow
-1. **Metrics Collection**: eBPF programs send BSS scheduler metrics to `/api/v1/metrics`
-2. **Process Discovery**: Server scans `/proc` filesystem to map processes to Kubernetes pods via cgroup parsing
-3. **Strategy Generation**: Combines user-defined strategies with live pod label data to generate scheduling decisions
-4. **Strategy Delivery**: Returns concrete PID-based scheduling strategies to the kernel scheduler
+- **Manager** (`manager/`): Central management service (port 8081) - handles users, RBAC, strategies, and distributes scheduling intents
+- **Decision Maker** (`decisionmaker/`): DaemonSet per-node (port 8080) - receives intents, scans `/proc` for PIDs, and interfaces with eBPF scheduler
 
-### Critical File Structure
-- `main.go`: Single-file monolith containing all HTTP handlers and core logic
-- `kubernetes.go`: K8s client with caching layer for pod metadata
-- `config.go`: Configuration with default scheduling strategies
-- `options.go`: CLI argument parsing with dual-mode support (in-cluster vs external)
+Both modes share the same binary, selected via `main.go manager` or `main.go decisionmaker` subcommands.
 
-## Development Patterns
+## Project Structure & Layered Architecture
 
-### Data Structure Conventions
-All API responses follow this pattern:
-```go
-type Response struct {
-    Success   bool   `json:"success"`
-    Message   string `json:"message"`
-    Timestamp string `json:"timestamp"`
-    // ... specific data fields
-}
+Each service follows **Clean Architecture** with strict layer separation:
+
+```
+{manager,decisionmaker}/
+├── app/        # Fx modules for DI wiring
+├── cmd/        # Cobra command definitions
+├── domain/     # Interfaces, entities, DTOs (Repository, Service, K8SAdapter)
+├── rest/       # Echo handlers, routes, middleware
+├── service/    # Business logic implementations
+└── repository/ # MongoDB persistence (manager only)
 ```
 
-### Scheduling Strategy Resolution
-The system uses a two-phase approach:
-1. **Template Strategies**: Defined with label selectors and regex patterns
-2. **Concrete Strategies**: Resolved to specific PIDs for kernel consumption
+Key interfaces in `manager/domain/interface.go`:
+- `Repository` - data persistence
+- `Service` - business logic
+- `K8SAdapter` - Kubernetes Pod queries via Informer
+- `DecisionMakerAdapter` - sends intents to DM nodes
 
-Example template to concrete transformation:
-```go
-// Template (from config/API)
-{
-    "selectors": [{"key": "nf", "value": "upf"}],
-    "command_regex": "nr-gnb|ping",
-    "execution_time": 20000000
-}
+## Development Commands
 
-// Becomes multiple concrete strategies
-[
-    {"pid": 12345, "execution_time": 20000000},
-    {"pid": 12346, "execution_time": 20000000}
-]
-```
-
-### Kubernetes Integration Patterns
-- **Dual Mode Support**: Always handle both in-cluster (`--in-cluster=true`) and external kubeconfig modes
-- **Graceful Degradation**: If K8s client fails, continue with empty pod labels rather than crashing
-- **Caching Strategy**: 30-second TTL on pod label lookups to reduce API pressure
-- **RBAC Requirements**: Needs `pods` and `namespaces` read access (see `k8s/deployment.yaml`)
-
-### Error Handling Approach
-- Return structured JSON errors, never plain text
-- Log errors but don't expose internal details in API responses
-- Use `log.Printf()` for all logging (no structured logging framework)
-
-## Key Development Workflows
-
-### Running & Testing
 ```bash
-# Local development with external K8s
-make run
-# or with specific kubeconfig
-go run main.go --kubeconfig=/path/to/config
+# Local infrastructure
+make local-infra-up              # Start MongoDB via docker-compose
+make local-run-manager           # Run Manager locally
 
-# Testing strategy APIs
-make test-strategies
+# Testing
+make test-all                    # Run all tests sequentially (required for integration tests)
+go test -v ./manager/rest/...    # Run specific package tests
 
-# Container deployment
-make docker-build && make k8s-deploy
+# Mocks & Docs
+make gen-mock                    # Generate mocks via mockery (from domain interfaces)
+make gen-manager-swagger         # Generate Swagger docs
+
+# Kind cluster
+make local-kind-setup            # Setup local Kind cluster
+make local-kind-teardown         # Teardown Kind cluster
 ```
 
-### Adding New Scheduling Logic
-1. Extend `SchedulingStrategy` struct in `main.go`
-2. Update `findPIDsByStrategy()` function for new matching logic
-3. Modify template-to-concrete resolution in `GetSchedulingStrategiesHandler`
-4. Update default config in `config.go`
+## Testing Patterns
 
-### Process-to-Pod Mapping Logic
-The system parses `/proc/<pid>/cgroup` looking for kubepods patterns:
-- Format: `/kubepods/burstable/pod<uid>/<container-id>`
-- Extracts pod UID, then queries K8s API for labels
-- Critical for linking kernel processes to pod scheduling policies
+Integration tests use **testcontainers** pattern (`pkg/container/`):
+- `HandlerTestSuite` in `manager/rest/handler_test.go` spins up a real MongoDB container
+- Use `app.TestRepoModule()` for container setup with Fx
+- Mock K8S/DM adapters with mockery-generated mocks from `domain/mock_domain.go`
+- Each test cleans DB via `util.MongoCleanup()` in `SetupTest()`
 
-## Integration Points
+Example test structure:
+```go
+func (suite *HandlerTestSuite) TestSomething() {
+    suite.MockK8SAdapter.EXPECT().QueryPods(...).Return(...)
+    // Call handler, assert response
+}
+```
 
-### External Dependencies
-- **Gorilla Mux**: HTTP routing (`github.com/gorilla/mux`)
-- **Kubernetes Client**: Official Go client for pod metadata
-- **Linux /proc filesystem**: Direct parsing for process discovery
+## Key Conventions
 
-### API Contract with eBPF Clients
-- BSS metrics use specific field names (e.g., `nr_queued`, `usersched_last_run_at`)
-- Scheduling strategies return nanosecond `execution_time` values
-- All timestamps in RFC3339 format
+### Dependency Injection
+- Use **Uber Fx** for DI - see `manager/app/module.go` for module composition
+- Service constructors take `Params struct` with `fx.In` tag
 
-### Deployment Considerations
-- Requires privileged access to `/proc` filesystem
-- Needs K8s RBAC permissions for pod/namespace reads
-- Typically deployed in `kube-system` namespace
-- Health checks on `/health` endpoint
+### Configuration
+- TOML configs in `config/` with `_config.go` parsers using Viper
+- Sensitive values use `SecretValue` type (masked in logs)
+- Test config: `manager_config.test.toml`
 
-## Common Gotchas
-- Pod UIDs from cgroup paths need underscore-to-dash conversion
-- Strategy resolution happens on every GET request (no caching)
-- Kubernetes client initialization is lazy and retried
-- Configuration file is optional; defaults are comprehensive
-- All scheduling times are in nanoseconds, not milliseconds
+### REST API
+- **Echo** framework with custom handler wrapper: `h.echoHandler(h.MethodName)`
+- Auth middleware: `h.GetAuthMiddleware(domain.PermissionKey)`
+- Routes in `rest/routes.go`, all versioned under `/api/v1`
+
+### Error Handling
+- Domain errors in `manager/domain/errors.go` and `manager/errs/errors.go`
+- Use `pkg/errors` for wrapping
+
+### Database
+- MongoDB v2 driver (`go.mongodb.org/mongo-driver/v2`)
+- Migrations in `manager/migration/` (JSON format, run via golang-migrate)
+- Collections: `users`, `roles`, `permissions`, `schedule_strategies`, `schedule_intents`
+
+## Important Entities
+
+- `ScheduleStrategy` - Pod label selectors + scheduling params (priority, execution time)
+- `ScheduleIntent` - Concrete intent for a specific Pod, distributed to DM nodes
+- `User`, `Role`, `Permission` - RBAC model with JWT (RSA) authentication
