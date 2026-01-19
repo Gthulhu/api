@@ -126,3 +126,21 @@ func (r *repo) QueryIntents(ctx context.Context, opt *domain.QueryIntentOptions)
 	}
 	return cursor.Err()
 }
+
+func (r *repo) DeleteStrategy(ctx context.Context, strategyID bson.ObjectID) error {
+	_, err := r.db.Collection(scheduleStrategyCollection).DeleteOne(ctx, bson.M{"_id": strategyID})
+	return err
+}
+
+func (r *repo) DeleteIntents(ctx context.Context, intentIDs []bson.ObjectID) error {
+	if len(intentIDs) == 0 {
+		return nil
+	}
+	_, err := r.db.Collection(scheduleIntentCollection).DeleteMany(ctx, bson.M{"_id": bson.M{"$in": intentIDs}})
+	return err
+}
+
+func (r *repo) DeleteIntentsByStrategyID(ctx context.Context, strategyID bson.ObjectID) error {
+	_, err := r.db.Collection(scheduleIntentCollection).DeleteMany(ctx, bson.M{"strategyID": strategyID})
+	return err
+}

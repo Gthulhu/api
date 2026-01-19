@@ -105,3 +105,85 @@ func (svc *Service) ListScheduleStrategies(ctx context.Context, filterOpts *doma
 func (svc *Service) ListScheduleIntents(ctx context.Context, filterOpts *domain.QueryIntentOptions) error {
 	return svc.Repo.QueryIntents(ctx, filterOpts)
 }
+
+func (svc *Service) DeleteScheduleStrategy(ctx context.Context, operator *domain.Claims, strategyID string) error {
+	strategyObjID, err := bson.ObjectIDFromHex(strategyID)
+	if err != nil {
+		return errors.WithMessagef(err, "invalid strategy ID %s", strategyID)
+	}
+
+	operatorID, err := operator.GetBsonObjectUID()
+	if err != nil {
+		return errors.WithMessagef(err, "invalid operator ID %s", operator.UID)
+	}
+
+	// Check if strategy exists and belongs to the operator
+	queryOpt := &domain.QueryStrategyOptions{
+		IDs:        []bson.ObjectID{strategyObjID},
+		CreatorIDs: []bson.ObjectID{operatorID},
+	}
+	err = svc.Repo.QueryStrategies(ctx, queryOpt)
+	if err != nil {
+		return err
+	}
+	if len(queryOpt.Result) == 0 {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "strategy not found or you don't have permission to delete it", nil)
+	}
+
+	// Delete associated intents first
+	err = svc.Repo.DeleteIntentsByStrategyID(ctx, strategyObjID)
+	if err != nil {
+		return fmt.Errorf("delete intents by strategy ID: %w", err)
+	}
+
+	// Delete the strategy
+	err = svc.Repo.DeleteStrategy(ctx, strategyObjID)
+	if err != nil {
+		return fmt.Errorf("delete strategy: %w", err)
+	}
+
+	logger.Logger(ctx).Info().Msgf("deleted strategy %s and its associated intents", strategyID)
+	return nil
+}
+
+func (svc *Service) DeleteScheduleIntents(ctx context.Context, operator *domain.Claims, intentIDs []string) error {
+	if len(intentIDs) == 0 {
+		return nil
+	}
+
+	operatorID, err := operator.GetBsonObjectUID()
+	if err != nil {
+		return errors.WithMessagef(err, "invalid operator ID %s", operator.UID)
+	}
+
+	intentObjIDs := make([]bson.ObjectID, 0, len(intentIDs))
+	for _, id := range intentIDs {
+		objID, err := bson.ObjectIDFromHex(id)
+		if err != nil {
+			return errors.WithMessagef(err, "invalid intent ID %s", id)
+		}
+		intentObjIDs = append(intentObjIDs, objID)
+	}
+
+	// Check if intents exist and belong to the operator
+	queryOpt := &domain.QueryIntentOptions{
+		IDs:        intentObjIDs,
+		CreatorIDs: []bson.ObjectID{operatorID},
+	}
+	err = svc.Repo.QueryIntents(ctx, queryOpt)
+	if err != nil {
+		return err
+	}
+	if len(queryOpt.Result) != len(intentIDs) {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "one or more intents not found or you don't have permission to delete them", nil)
+	}
+
+	// Delete the intents
+	err = svc.Repo.DeleteIntents(ctx, intentObjIDs)
+	if err != nil {
+		return fmt.Errorf("delete intents: %w", err)
+	}
+
+	logger.Logger(ctx).Info().Msgf("deleted %d intents", len(intentIDs))
+	return nil
+}
