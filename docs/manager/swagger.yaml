@@ -7,6 +7,7 @@ definitions:
     - 0
     - 1
     - 2
+    format: int32
     type: integer
     x-enum-varnames:
     - IntentStateUnknown
@@ -25,7 +26,9 @@ definitions:
     - permission.read
     - schedule_strategy.create
     - schedule_strategy.read
+    - schedule_strategy.delete
     - schedule_intent.read
+    - schedule_intent.delete
     type: string
     x-enum-varnames:
     - CreateUser
@@ -39,12 +42,15 @@ definitions:
     - PermissionRead
     - ScheduleStrategyCreate
     - ScheduleStrategyRead
+    - ScheduleStrategyDelete
     - ScheduleIntentRead
+    - ScheduleIntentDelete
   domain.UserStatus:
     enum:
     - 1
     - 2
     - 3
+    format: int32
     type: integer
     x-enum-varnames:
     - UserStatusActive
@@ -84,6 +90,13 @@ definitions:
       status:
         type: string
       timestamp:
+        type: string
+    type: object
+  github_com_Gthulhu_api_manager_rest.LabelSelector:
+    properties:
+      key:
+        type: string
+      value:
         type: string
     type: object
   github_com_Gthulhu_api_manager_rest.SuccessResponse-github_com_Gthulhu_api_manager_rest_EmptyResponse:
@@ -197,7 +210,7 @@ definitions:
         type: array
       labelSelectors:
         items:
-          $ref: '#/definitions/rest.LabelSelector'
+          $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.LabelSelector'
         type: array
       priority:
         type: integer
@@ -216,6 +229,18 @@ definitions:
       id:
         type: string
     type: object
+  rest.DeleteScheduleIntentsRequest:
+    properties:
+      intentIds:
+        items:
+          type: string
+        type: array
+    type: object
+  rest.DeleteScheduleStrategyRequest:
+    properties:
+      strategyId:
+        type: string
+    type: object
   rest.GetSelfUserResponse:
     properties:
       id:
@@ -227,13 +252,6 @@ definitions:
       status:
         $ref: '#/definitions/domain.UserStatus'
       username:
-        type: string
-    type: object
-  rest.LabelSelector:
-    properties:
-      key:
-        type: string
-      value:
         type: string
     type: object
   rest.ListPermissionsResponse:
@@ -367,7 +385,7 @@ definitions:
         type: array
       labelSelectors:
         items:
-          $ref: '#/definitions/rest.LabelSelector'
+          $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.LabelSelector'
         type: array
       priority:
         type: integer
@@ -444,6 +462,50 @@ paths:
       summary: User login
       tags:
       - Auth
+  /api/v1/intents:
+    delete:
+      consumes:
+      - application/json
+      description: Delete one or more schedule intents.
+      parameters:
+      - description: Intent IDs to delete
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.DeleteScheduleIntentsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-github_com_Gthulhu_api_manager_rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete schedule intents
+      tags:
+      - Strategies
   /api/v1/intents/self:
     get:
       consumes:
@@ -641,6 +703,49 @@ paths:
       tags:
       - Roles
   /api/v1/strategies:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a schedule strategy and its associated intents.
+      parameters:
+      - description: Strategy ID to delete
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/rest.DeleteScheduleStrategyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-github_com_Gthulhu_api_manager_rest_EmptyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete schedule strategy
+      tags:
+      - Strategies
     post:
       consumes:
       - application/json
