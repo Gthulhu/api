@@ -235,3 +235,101 @@ func (h *Handler) convertDomainIntentToResponseIntent(domainIntent *domain.Sched
 		State:         domainIntent.State,
 	}
 }
+
+type DeleteScheduleStrategyRequest struct {
+	StrategyID string `json:"strategyId"`
+}
+
+// DeleteScheduleStrategy godoc
+// @Summary Delete schedule strategy
+// @Description Delete a schedule strategy and its associated intents.
+// @Tags Strategies
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body DeleteScheduleStrategyRequest true "Strategy ID to delete"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/strategies [delete]
+func (h *Handler) DeleteScheduleStrategy(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req DeleteScheduleStrategyRequest
+	err := h.JSONBind(r, &req)
+	if err != nil {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+
+	if req.StrategyID == "" {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Strategy ID is required", nil)
+		return
+	}
+
+	claims, ok := h.GetClaimsFromContext(ctx)
+	if !ok {
+		h.ErrorResponse(ctx, w, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	err = h.Svc.DeleteScheduleStrategy(ctx, &claims, req.StrategyID)
+	if err != nil {
+		h.HandleError(ctx, w, err)
+		return
+	}
+
+	response := NewSuccessResponse[EmptyResponse](&EmptyResponse{})
+	h.JSONResponse(ctx, w, http.StatusOK, response)
+}
+
+type DeleteScheduleIntentsRequest struct {
+	IntentIDs []string `json:"intentIds"`
+}
+
+// DeleteScheduleIntents godoc
+// @Summary Delete schedule intents
+// @Description Delete one or more schedule intents.
+// @Tags Strategies
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body DeleteScheduleIntentsRequest true "Intent IDs to delete"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/intents [delete]
+func (h *Handler) DeleteScheduleIntents(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req DeleteScheduleIntentsRequest
+	err := h.JSONBind(r, &req)
+	if err != nil {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+
+	if len(req.IntentIDs) == 0 {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "At least one intent ID is required", nil)
+		return
+	}
+
+	claims, ok := h.GetClaimsFromContext(ctx)
+	if !ok {
+		h.ErrorResponse(ctx, w, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	err = h.Svc.DeleteScheduleIntents(ctx, &claims, req.IntentIDs)
+	if err != nil {
+		h.HandleError(ctx, w, err)
+		return
+	}
+
+	response := NewSuccessResponse[EmptyResponse](&EmptyResponse{})
+	h.JSONResponse(ctx, w, http.StatusOK, response)
+}

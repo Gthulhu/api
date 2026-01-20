@@ -66,6 +66,9 @@ type Repository interface {
 	BatchUpdateIntentsState(ctx context.Context, intentIDs []bson.ObjectID, newState IntentState) error
 	QueryStrategies(ctx context.Context, opt *QueryStrategyOptions) error
 	QueryIntents(ctx context.Context, opt *QueryIntentOptions) error
+	DeleteStrategy(ctx context.Context, strategyID bson.ObjectID) error
+	DeleteIntents(ctx context.Context, intentIDs []bson.ObjectID) error
+	DeleteIntentsByStrategyID(ctx context.Context, strategyID bson.ObjectID) error
 }
 
 type Service interface {
@@ -87,6 +90,8 @@ type Service interface {
 	CreateScheduleStrategy(ctx context.Context, operator *Claims, strategy *ScheduleStrategy) error
 	ListScheduleStrategies(ctx context.Context, filterOpts *QueryStrategyOptions) error
 	ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error
+	DeleteScheduleStrategy(ctx context.Context, operator *Claims, strategyID string) error
+	DeleteScheduleIntents(ctx context.Context, operator *Claims, intentIDs []string) error
 }
 
 type QueryPodsOptions struct {
@@ -106,6 +111,12 @@ type K8SAdapter interface {
 	QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) ([]*DecisionMakerPod, error)
 }
 
+type DeleteIntentsRequest struct {
+	PodIDs []string // Delete all intents for these pods
+	All    bool     // If true, deletes all intents on the decision maker
+}
+
 type DecisionMakerAdapter interface {
 	SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error
+	DeleteSchedulingIntents(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error
 }

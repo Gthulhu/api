@@ -244,3 +244,43 @@ func (svc *Service) getProcessInfo(rootDir string, pid int) (domain.PodProcess, 
 func (svc *Service) UpdateMetrics(ctx context.Context, newMetricSet *domain.MetricSet) {
 	svc.metricCollector.UpdateMetrics(newMetricSet)
 }
+
+// DeleteIntentByPodID deletes all scheduling intents for a specific pod ID
+func (svc *Service) DeleteIntentByPodID(ctx context.Context, podID string) error {
+	keysToDelete := []string{}
+	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
+		if strings.HasPrefix(key, podID+"-") {
+			keysToDelete = append(keysToDelete, key)
+		}
+		return true
+	})
+	for _, key := range keysToDelete {
+		svc.schedulingIntentsMap.Delete(key)
+	}
+	logger.Logger(ctx).Info().Msgf("Deleted %d scheduling intents for pod ID: %s", len(keysToDelete), podID)
+	return nil
+}
+
+// DeleteIntentByPID deletes a specific scheduling intent by pod ID and PID
+func (svc *Service) DeleteIntentByPID(ctx context.Context, podID string, pid int) error {
+	key := fmt.Sprintf("%s-%d", podID, pid)
+	svc.schedulingIntentsMap.Delete(key)
+	logger.Logger(ctx).Info().Msgf("Deleted scheduling intent for key: %s", key)
+	return nil
+}
+
+// DeleteAllIntents clears all scheduling intents
+func (svc *Service) DeleteAllIntents(ctx context.Context) error {
+	keysToDelete := []string{}
+	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
+		keysToDelete = append(keysToDelete, key)
+		return true
+	})
+
+	for _, key := range keysToDelete {
+		svc.schedulingIntentsMap.Delete(key)
+	}
+
+	logger.Logger(ctx).Info().Msgf("Deleted all %d scheduling intents", len(keysToDelete))
+	return nil
+}

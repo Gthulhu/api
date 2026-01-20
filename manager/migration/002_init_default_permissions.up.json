@@ -73,6 +73,18 @@
                 "resource": "schedule_intent",
                 "action": "read",
                 "description": "Read schedule intents"
+            },
+            {
+                "key": "schedule_strategy.delete",
+                "resource": "schedule_strategy",
+                "action": "delete",
+                "description": "Delete schedule strategies"
+            },
+            {
+                "key": "schedule_intent.delete",
+                "resource": "schedule_intent",
+                "action": "delete",
+                "description": "Delete schedule intents"
             }
         ]
     }
