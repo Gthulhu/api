@@ -67,7 +67,9 @@ func (suite *HandlerTestSuite) TestIntegrationDeleteStrategyHandler() {
 	strategies := suite.listSelfStrategies(adminToken, http.StatusOK)
 	suite.Require().Len(strategies.Strategies, 1, "Expected one strategy")
 
-	// Delete the strategy
+	// Delete the strategy - need to mock DM notification
+	suite.MockK8SAdapter.EXPECT().QueryDecisionMakerPods(mock.Anything, mock.Anything).Return([]*domain.DecisionMakerPod{{Host: "dm-host", NodeID: "test", Port: 8080}}, nil).Once()
+	suite.MockDMAdapter.EXPECT().DeleteSchedulingIntents(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	suite.deleteStrategy(adminToken, strategies.Strategies[0].ID.Hex(), http.StatusOK)
 
 	// Verify strategy and intents are deleted
@@ -101,7 +103,9 @@ func (suite *HandlerTestSuite) TestIntegrationDeleteIntentsHandler() {
 	intents := suite.listSelfIntents(adminToken, http.StatusOK)
 	suite.Require().Len(intents.Intents, 2, "Expected two intents")
 
-	// Delete one intent
+	// Delete one intent - need to mock DM notification
+	suite.MockK8SAdapter.EXPECT().QueryDecisionMakerPods(mock.Anything, mock.Anything).Return([]*domain.DecisionMakerPod{{Host: "dm-host", NodeID: "test", Port: 8080}}, nil).Once()
+	suite.MockDMAdapter.EXPECT().DeleteSchedulingIntents(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	suite.deleteIntents(adminToken, []string{intents.Intents[0].ID.Hex()}, http.StatusOK)
 
 	// Verify only one intent remains
@@ -133,7 +137,7 @@ func (suite *HandlerTestSuite) deleteStrategy(token string, strategyID string, e
 	deleteReq := rest.DeleteScheduleStrategyRequest{
 		StrategyID: strategyID,
 	}
-	deleteResp := rest.SuccessResponse[string]{}
+	deleteResp := rest.SuccessResponse[rest.EmptyResponse]{}
 	_, resp := suite.sendV1Request("DELETE", "/strategies", deleteReq, &deleteResp, token)
 	suite.Require().Equal(expectedStatus, resp.Code, "Unexpected status code on delete strategy")
 }
@@ -142,7 +146,7 @@ func (suite *HandlerTestSuite) deleteIntents(token string, intentIDs []string, e
 	deleteReq := rest.DeleteScheduleIntentsRequest{
 		IntentIDs: intentIDs,
 	}
-	deleteResp := rest.SuccessResponse[string]{}
+	deleteResp := rest.SuccessResponse[rest.EmptyResponse]{}
 	_, resp := suite.sendV1Request("DELETE", "/intents", deleteReq, &deleteResp, token)
 	suite.Require().Equal(expectedStatus, resp.Code, "Unexpected status code on delete intents")
 }
