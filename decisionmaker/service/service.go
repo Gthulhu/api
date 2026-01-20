@@ -271,12 +271,16 @@ func (svc *Service) DeleteIntentByPID(ctx context.Context, podID string, pid int
 
 // DeleteAllIntents clears all scheduling intents
 func (svc *Service) DeleteAllIntents(ctx context.Context) error {
-	count := 0
+	keysToDelete := []string{}
 	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
-		svc.schedulingIntentsMap.Delete(key)
-		count++
+		keysToDelete = append(keysToDelete, key)
 		return true
 	})
-	logger.Logger(ctx).Info().Msgf("Deleted all %d scheduling intents", count)
+
+	for _, key := range keysToDelete {
+		svc.schedulingIntentsMap.Delete(key)
+	}
+
+	logger.Logger(ctx).Info().Msgf("Deleted all %d scheduling intents", len(keysToDelete))
 	return nil
 }

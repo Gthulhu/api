@@ -281,7 +281,7 @@ func (h *Handler) DeleteScheduleStrategy(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response := NewSuccessResponse[string](nil)
+	response := NewSuccessResponse[EmptyResponse](&EmptyResponse{})
 	h.JSONResponse(ctx, w, http.StatusOK, response)
 }
 
@@ -330,6 +330,6 @@ func (h *Handler) DeleteScheduleIntents(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response := NewSuccessResponse[string](nil)
+	response := NewSuccessResponse[EmptyResponse](&EmptyResponse{})
 	h.JSONResponse(ctx, w, http.StatusOK, response)
 }

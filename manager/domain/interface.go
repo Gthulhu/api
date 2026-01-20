@@ -111,6 +111,12 @@ type K8SAdapter interface {
 	QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) ([]*DecisionMakerPod, error)
 }
 
+type DeleteIntentsRequest struct {
+	PodIDs []string // Delete all intents for these pods
+	All    bool     // If true, deletes all intents on the decision maker
+}
+
 type DecisionMakerAdapter interface {
 	SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error
+	DeleteSchedulingIntents(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error
 }

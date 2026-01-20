@@ -2216,3 +2216,66 @@ func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) RunAndReturn(run f
 	_c.Call.Return(run)
 	return _c
 }
+
+// DeleteSchedulingIntents provides a mock function for the type MockDecisionMakerAdapter
+func (_mock *MockDecisionMakerAdapter) DeleteSchedulingIntents(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error {
+	ret := _mock.Called(ctx, decisionMaker, req)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteSchedulingIntents")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod, *DeleteIntentsRequest) error); ok {
+		r0 = returnFunc(ctx, decisionMaker, req)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockDecisionMakerAdapter_DeleteSchedulingIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteSchedulingIntents'
+type MockDecisionMakerAdapter_DeleteSchedulingIntents_Call struct {
+	*mock.Call
+}
+
+// DeleteSchedulingIntents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - decisionMaker *DecisionMakerPod
+//   - req *DeleteIntentsRequest
+func (_e *MockDecisionMakerAdapter_Expecter) DeleteSchedulingIntents(ctx interface{}, decisionMaker interface{}, req interface{}) *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call {
+	return &MockDecisionMakerAdapter_DeleteSchedulingIntents_Call{Call: _e.mock.On("DeleteSchedulingIntents", ctx, decisionMaker, req)}
+}
+
+func (_c *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest)) *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *DecisionMakerPod
+		if args[1] != nil {
+			arg1 = args[1].(*DecisionMakerPod)
+		}
+		var arg2 *DeleteIntentsRequest
+		if args[2] != nil {
+			arg2 = args[2].(*DeleteIntentsRequest)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call) Return(err error) *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error) *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call {
+	_c.Call.Return(run)
+	return _c
+}

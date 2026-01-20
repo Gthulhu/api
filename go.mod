@@ -1,8 +1,6 @@
 module github.com/Gthulhu/api
 
-go 1.24.0
-
-toolchain go1.24.5
+go 1.24.5
 
 tool github.com/vektra/mockery/v3
 
