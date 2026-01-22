@@ -3,110 +3,452 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gthulhu API server Client</title>
+    <title>Gthulhu • eBPF Scheduler Control</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Gthulhu API server Client</h1>
-        <div class="auth-status" id="authStatus">
-            <span id="authText">Not Authenticated</span>
-            <button id="authBtn" onclick="showAuthModal()">Get Token</button>
+    <!-- Ambient Background Effects -->
+    <div class="ambient-grid"></div>
+    <div class="scan-line"></div>
+    
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <img src="logo.png" alt="Gthulhu Logo" class="logo-image">
+                </div>
+                <div class="logo-text">
+                    <h1>GTHULHU</h1>
+                    <span class="tagline">eBPF Scheduler Control Interface</span>
+                </div>
+            </div>
+            <div class="auth-section" id="authSection">
+                <div class="connection-status" id="connectionStatus">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Disconnected</span>
+                </div>
+                <button class="auth-btn" id="authBtn" onclick="showLoginModal()">
+                    <span class="btn-icon">⚡</span>
+                    <span>Connect</span>
+                </button>
+            </div>
         </div>
     </header>
 
-    <main>
-        <!-- Authentication Modal -->
-        <div id="authModal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="hideAuthModal()">&times;</span>
-                <h2>JWT Authentication</h2>
-                <form id="authForm">
-                    <label for="publicKey">Public Key (PEM format):</label>
-                    <textarea id="publicKey" placeholder="-----BEGIN PUBLIC KEY-----
-...
------END PUBLIC KEY-----" required></textarea>
-                    <button type="button" onclick="fillSampleKey()" style="margin-bottom: 10px;">Fill Sample Key</button>
-                    <button type="submit">Get Token</button>
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>
+                    <span class="modal-icon">🔐</span>
+                    System Authentication
+                </h2>
+                <button class="modal-close" onclick="hideLoginModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <form id="loginForm" onsubmit="handleLogin(event)">
+                    <div class="input-group">
+                        <label for="email">
+                            <span class="label-icon">📧</span>
+                            Email Address
+                        </label>
+                        <input type="email" id="email" name="email" placeholder="admin@gthulhu.io" required autocomplete="email">
+                        <div class="input-glow"></div>
+                    </div>
+                    <div class="input-group">
+                        <label for="password">
+                            <span class="label-icon">🔑</span>
+                            Password
+                        </label>
+                        <input type="password" id="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+                        <div class="input-glow"></div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn" id="loginSubmitBtn">
+                            <span class="btn-text">Authenticate</span>
+                            <span class="btn-loader"></span>
+                        </button>
+                    </div>
+                    <div id="loginError" class="error-message"></div>
                 </form>
             </div>
-        </div>
-
-        <!-- API Endpoints -->
-        <div class="api-section">
-            <h2>Health Check</h2>
-            <div class="control-panel">
-                <button onclick="checkHealth()" class="api-btn">Check Service Health</button>
-                <div class="interval-controls">
-                    <label for="healthInterval">Auto-refresh interval (seconds):</label>
-                    <input type="number" id="healthInterval" min="1" max="300" value="5">
-                    <button onclick="toggleHealthAutoRefresh()" id="healthAutoBtn">Start Auto-refresh</button>
-                </div>
+            <div class="modal-footer">
+                <span class="security-note">🛡️ Secure connection via JWT</span>
             </div>
-            <div class="health-status-grid">
-                <h4>Health Status (Last 10 checks)</h4>
-                <div id="healthGrid" class="status-grid"></div>
-                <div class="grid-legend">
-                    <span class="legend-item"><span class="status-box healthy"></span> Healthy</span>
-                    <span class="legend-item"><span class="status-box unhealthy"></span> Unhealthy</span>
-                </div>
+        </div>
+    </div>
+
+    <!-- API Configuration Modal -->
+    <div id="configModal" class="modal-overlay">
+        <div class="modal-container modal-sm">
+            <div class="modal-header">
+                <h2>
+                    <span class="modal-icon">⚙️</span>
+                    API Configuration
+                </h2>
+                <button class="modal-close" onclick="hideConfigModal()">×</button>
             </div>
-            <pre id="healthResult" class="result"></pre>
-        </div>
-
-        <div class="api-section">
-            <h2>Pod-PID Mapping</h2>
-            <button onclick="getPodPids()" class="api-btn auth-required">Get Pod-PID Mapping</button>
-            <pre id="podPidsResult" class="result"></pre>
-        </div>
-
-        <div class="api-section">
-            <h2>Scheduling Strategies</h2>
-            <button onclick="getStrategies()" class="api-btn auth-required">Get Scheduling Strategies</button>
-            <pre id="strategiesResult" class="result"></pre>
-            
-            <h3>Set New Scheduling Strategies</h3>
-            <div class="strategies-manager">
-                <div id="strategiesContainer">
-                    <!-- Strategy templates will be added here -->
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="apiBaseUrl">
+                        <span class="label-icon">🌐</span>
+                        API Base URL
+                    </label>
+                    <input type="url" id="apiBaseUrl" placeholder="http://localhost:8080">
+                    <div class="input-glow"></div>
+                    <small class="input-hint">Leave empty for same-origin requests</small>
                 </div>
-                <div class="strategy-controls">
-                    <button type="button" onclick="addStrategy()" class="add-strategy-btn">Add Strategy</button>
-                    <button type="button" onclick="saveAllStrategies()" class="api-btn auth-required">Save All Strategies</button>
-                    <button type="button" onclick="clearAllStrategies()" class="clear-btn">Clear All</button>
+                <div class="form-actions">
+                    <button type="button" class="submit-btn" onclick="saveApiConfig()">
+                        <span class="btn-text">Save Configuration</span>
+                    </button>
                 </div>
             </div>
         </div>
+    </div>
 
-        <div class="api-section">
-            <h2>Current Metrics</h2>
-            <div class="control-panel">
-                <button onclick="getMetrics()" class="api-btn auth-required">Get Current Metrics</button>
-                <div class="interval-controls">
-                    <label for="metricsInterval">Auto-refresh interval (seconds):</label>
-                    <input type="number" id="metricsInterval" min="1" max="300" value="10">
-                    <button onclick="toggleMetricsAutoRefresh()" id="metricsAutoBtn" class="auth-required">Start Auto-refresh</button>
+    <!-- Main Content -->
+    <main class="dashboard">
+        <!-- Quick Actions Bar -->
+        <div class="quick-actions">
+            <button class="action-chip" onclick="showConfigModal()">
+                <span>⚙️</span> API Config
+            </button>
+            <button class="action-chip" onclick="checkHealth()">
+                <span>💓</span> Health Check
+            </button>
+            <button class="action-chip" onclick="getVersion()">
+                <span>📦</span> Version
+            </button>
+            <button class="action-chip auth-required" onclick="refreshAllData()" disabled>
+                <span>🔄</span> Refresh All
+            </button>
+        </div>
+
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- System Health Card -->
+            <section class="card health-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">💓</span>
+                        <h2>System Health</h2>
+                    </div>
+                    <div class="card-actions">
+                        <div class="auto-refresh-toggle">
+                            <input type="checkbox" id="healthAutoRefresh" onchange="toggleHealthAutoRefresh()">
+                            <label for="healthAutoRefresh">Auto</label>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <pre id="metricsResult" class="result"></pre>
-            <div class="metrics-info">
-                <h3>Metrics Information</h3>
-                <ul>
-                    <li><strong>Last Run Time:</strong> Timestamp of last scheduler run</li>
-                    <li><strong>Queued Tasks:</strong> Number of tasks in queue</li>
-                    <li><strong>Scheduled Tasks:</strong> Number of scheduled tasks</li>
-                    <li><strong>Running Tasks:</strong> Number of currently running tasks</li>
-                    <li><strong>Online CPUs:</strong> Number of available CPU cores</li>
-                    <li><strong>User Dispatches:</strong> Number of user-space dispatches</li>
-                    <li><strong>Kernel Dispatches:</strong> Number of kernel-space dispatches</li>
-                    <li><strong>Cancel Dispatches:</strong> Number of cancelled dispatches</li>
-                    <li><strong>Bounce Dispatches:</strong> Number of bounced dispatches</li>
-                    <li><strong>Failed Dispatches:</strong> Number of failed dispatches</li>
-                    <li><strong>Scheduler Congested:</strong> Number of scheduler congestion events</li>
-                </ul>
-            </div>
+                <div class="card-body">
+                    <div class="health-display">
+                        <div class="health-indicator" id="healthIndicator">
+                            <div class="health-ring">
+                                <svg viewBox="0 0 100 100">
+                                    <circle cx="50" cy="50" r="45" class="ring-bg"/>
+                                    <circle cx="50" cy="50" r="45" class="ring-progress" id="healthRing"/>
+                                </svg>
+                                <div class="health-status" id="healthStatus">--</div>
+                            </div>
+                        </div>
+                        <div class="health-history">
+                            <span class="history-label">History (Last 10)</span>
+                            <div class="history-grid" id="healthGrid"></div>
+                        </div>
+                    </div>
+                    <div class="health-details" id="healthDetails">
+                        <pre class="code-block">Awaiting health check...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- User Profile Card -->
+            <section class="card user-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">👤</span>
+                        <h2>User Profile</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn auth-required" onclick="getUserProfile()" title="Refresh Profile" disabled>
+                            🔄
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="user-profile-display" id="userProfileDisplay">
+                        <div class="user-avatar">
+                            <div class="avatar-circle" id="userAvatar">?</div>
+                            <div class="user-status-indicator" id="userStatusIndicator"></div>
+                        </div>
+                        <div class="user-main-info">
+                            <div class="user-name" id="userDisplayName">Not Connected</div>
+                            <div class="user-email-display" id="userEmailDisplay">Authenticate to view profile</div>
+                        </div>
+                        <div class="user-meta-grid">
+                            <div class="user-meta-item">
+                                <span class="meta-icon">🛡️</span>
+                                <div class="meta-content">
+                                    <span class="meta-label">Role</span>
+                                    <span class="meta-value" id="userRoleDisplay">--</span>
+                                </div>
+                            </div>
+                            <div class="user-meta-item">
+                                <span class="meta-icon">📊</span>
+                                <div class="meta-content">
+                                    <span class="meta-label">Status</span>
+                                    <span class="meta-value" id="userStatusDisplay">Offline</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <details class="user-raw-details">
+                        <summary>Raw Profile Data</summary>
+                        <pre class="code-block" id="userDetails">Authenticate to view profile...</pre>
+                    </details>
+                </div>
+            </section>
+
+            <!-- Schedule Intents Card -->
+            <section class="card intents-card full-width">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">📋</span>
+                        <h2>Schedule Intents</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn auth-required" onclick="getIntents()" title="Load Intents" disabled>
+                            🔄
+                        </button>
+                        <button class="danger-btn auth-required" onclick="showDeleteIntentsModal()" disabled>
+                            🗑️ Delete Intents
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="intents-list" id="intentsList">
+                        <!-- Intents will be displayed here -->
+                    </div>
+                    <div class="intents-result">
+                        <pre class="code-block" id="intentsResult">Authenticate to view schedule intents...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Scheduling Strategies Card -->
+            <section class="card strategies-card full-width">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">🎯</span>
+                        <h2>Scheduling Strategies</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn auth-required" onclick="getStrategies()" title="Load Strategies" disabled>
+                            📥
+                        </button>
+                        <button class="danger-btn auth-required" onclick="showDeleteStrategyModal()" disabled>
+                            🗑️ Delete Strategy
+                        </button>
+                        <button class="primary-btn auth-required" onclick="addStrategy()" disabled>
+                            <span>+</span> New Strategy
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="strategies-container" id="strategiesContainer">
+                        <!-- Strategies will be dynamically added here -->
+                    </div>
+                    <div class="strategies-actions" id="strategiesActions" style="display: none;">
+                        <button class="danger-btn" onclick="clearAllStrategies()">
+                            🗑️ Clear Form
+                        </button>
+                        <button class="success-btn auth-required" onclick="saveAllStrategies()" disabled>
+                            💾 Create Strategy
+                        </button>
+                    </div>
+                    <div class="strategies-result">
+                        <pre class="code-block" id="strategiesResult">Add strategies above to configure scheduling behavior...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users Management Card (Admin) -->
+            <section class="card users-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">👥</span>
+                        <h2>Users</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn auth-required" onclick="getUsers()" title="Load Users" disabled>
+                            🔄
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="users-result">
+                        <pre class="code-block" id="usersResult">Authenticate to manage users...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Roles & Permissions Card -->
+            <section class="card roles-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">🛡️</span>
+                        <h2>Roles & Permissions</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn auth-required" onclick="getRoles()" title="Load Roles" disabled>
+                            🔄
+                        </button>
+                        <button class="icon-btn auth-required" onclick="getPermissions()" title="Load Permissions" disabled>
+                            📜
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="roles-result">
+                        <pre class="code-block" id="rolesResult">Authenticate to view roles...</pre>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pod-PID Mapping Card -->
+            <section class="card pods-card full-width">
+                <div class="card-header">
+                    <div class="card-title">
+                        <span class="card-icon">🐳</span>
+                        <h2>Pod-PID Mapping</h2>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn auth-required" onclick="getPodPids()" title="Load Pod-PID Mappings" disabled>
+                            🔄
+                        </button>
+                        <button class="icon-btn" onclick="toggleAllPods(true)" title="Expand All">
+                            ⊞
+                        </button>
+                        <button class="icon-btn" onclick="toggleAllPods(false)" title="Collapse All">
+                            ⊟
+                        </button>
+                        <div class="auto-refresh-toggle">
+                            <input type="checkbox" id="podPidsAutoRefresh" onchange="togglePodPidsAutoRefresh()">
+                            <label for="podPidsAutoRefresh">Auto</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="pods-summary" id="podsSummary">
+                        <div class="summary-item">
+                            <span class="summary-value" id="nodeNameDisplay">--</span>
+                            <span class="summary-label">Node</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-value" id="podsCount">--</span>
+                            <span class="summary-label">Pods</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-value" id="processesCount">--</span>
+                            <span class="summary-label">Processes</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-value" id="lastUpdated">--</span>
+                            <span class="summary-label">Last Updated</span>
+                        </div>
+                    </div>
+                    <div class="pods-accordion" id="podsAccordion">
+                        <!-- Pods will be rendered as collapsible items -->
+                        <div class="pods-empty-state">Authenticate to view pod-PID mappings...</div>
+                    </div>
+                    <div class="pods-result">
+                        <details>
+                            <summary>Raw JSON Response</summary>
+                            <pre class="code-block" id="podsResult">Authenticate to view pod-PID mappings...</pre>
+                        </details>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
+
+    <!-- Delete Intents Modal -->
+    <div id="deleteIntentsModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>
+                    <span class="modal-icon">🗑️</span>
+                    Delete Schedule Intents
+                </h2>
+                <button class="modal-close" onclick="hideDeleteIntentsModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="intentIds">
+                        <span class="label-icon">📋</span>
+                        Intent IDs (comma separated)
+                    </label>
+                    <textarea id="intentIds" rows="3" placeholder="intent-id-1, intent-id-2"></textarea>
+                    <div class="input-glow"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="danger-btn" onclick="deleteIntents()">
+                        <span class="btn-text">Delete Intents</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Strategy Modal -->
+    <div id="deleteStrategyModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2>
+                    <span class="modal-icon">🗑️</span>
+                    Delete Schedule Strategy
+                </h2>
+                <button class="modal-close" onclick="hideDeleteStrategyModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label for="strategyId">
+                        <span class="label-icon">🎯</span>
+                        Strategy ID
+                    </label>
+                    <input type="text" id="deleteStrategyId" placeholder="strategy-id">
+                    <div class="input-glow"></div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="danger-btn" onclick="deleteStrategy()">
+                        <span class="btn-text">Delete Strategy</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+        <div class="footer-content">
+            <span class="version">v1.0.0</span>
+            <span class="separator">•</span>
+            <span class="copyright">Gthulhu Scheduler © 2026</span>
+            <span class="separator">•</span>
+            <a href="https://github.com/Gthulhu/Gthulhu" target="_blank" class="github-link">
+                GitHub
+            </a>
+        </div>
+    </footer>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
 
     <script src="app.js"></script>
 </body>
