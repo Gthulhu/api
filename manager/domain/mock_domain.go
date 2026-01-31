@@ -2154,6 +2154,73 @@ func (_m *MockDecisionMakerAdapter) EXPECT() *MockDecisionMakerAdapter_Expecter 
 	return &MockDecisionMakerAdapter_Expecter{mock: &_m.Mock}
 }
 
+// GetIntentMerkleRoot provides a mock function for the type MockDecisionMakerAdapter
+func (_mock *MockDecisionMakerAdapter) GetIntentMerkleRoot(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error) {
+	ret := _mock.Called(ctx, decisionMaker)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetIntentMerkleRoot")
+	}
+
+	var r0 string
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) string); ok {
+		r0 = returnFunc(ctx, decisionMaker)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(string)
+		}
+	}
+
+	var r1 error
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *DecisionMakerPod) error); ok {
+		r1 = returnFunc(ctx, decisionMaker)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockDecisionMakerAdapter_GetIntentMerkleRoot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetIntentMerkleRoot'
+type MockDecisionMakerAdapter_GetIntentMerkleRoot_Call struct {
+	*mock.Call
+}
+
+// GetIntentMerkleRoot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - decisionMaker *DecisionMakerPod
+func (_e *MockDecisionMakerAdapter_Expecter) GetIntentMerkleRoot(ctx interface{}, decisionMaker interface{}) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	return &MockDecisionMakerAdapter_GetIntentMerkleRoot_Call{Call: _e.mock.On("GetIntentMerkleRoot", ctx, decisionMaker)}
+}
+
+func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod)) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *DecisionMakerPod
+		if args[1] != nil {
+			arg1 = args[1].(*DecisionMakerPod)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) Return(root string, err error) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Return(root, err)
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error)) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SendSchedulingIntent provides a mock function for the type MockDecisionMakerAdapter
 func (_mock *MockDecisionMakerAdapter) SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error {
 	ret := _mock.Called(ctx, decisionMaker, intents)

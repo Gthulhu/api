@@ -108,4 +108,5 @@ type K8SAdapter interface {
 
 type DecisionMakerAdapter interface {
 	SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error
+	GetIntentMerkleRoot(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error)
 }

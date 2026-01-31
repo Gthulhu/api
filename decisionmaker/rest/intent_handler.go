@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Gthulhu/api/decisionmaker/domain"
+	"github.com/Gthulhu/api/decisionmaker/service"
 )
 
 type HandleIntentsRequest struct {
@@ -99,6 +100,26 @@ func (h *Handler) ListIntents(w http.ResponseWriter, r *http.Request) {
 		Scheduling: schedulingIntents,
 	}
 	h.JSONResponse(ctx, w, http.StatusOK, response)
+}
+
+type MerkleRootResponse struct {
+	RootHash string `json:"rootHash"`
+}
+
+func (h *Handler) GetIntentMerkleRoot(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	resp, err := h.Service.TraverseIntentMerkleTree(ctx, &service.TraverseIntentMerkleTreeOptions{
+		Depth: 0,
+	})
+	if err != nil {
+		h.ErrorResponse(ctx, w, http.StatusInternalServerError, "Failed to get intent merkle root", err)
+		return
+	}
+	rootHash := ""
+	if resp != nil && resp.RootNode != nil {
+		rootHash = resp.RootNode.Hash
+	}
+	h.JSONResponse(ctx, w, http.StatusOK, NewSuccessResponse(&MerkleRootResponse{RootHash: rootHash}))
 }
 
 func convertMapToLabelSelectors(selectorMap []domain.LabelSelector) []LabelSelector {

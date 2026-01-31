@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/Gthulhu/api/config"
 	"github.com/Gthulhu/api/decisionmaker/domain"
@@ -46,6 +48,10 @@ type Service struct {
 	metricCollector      *MetricCollector
 	jwtPrivateKey        *rsa.PrivateKey
 	tokenConfig          config.TokenConfig
+	intentCacheMu        sync.RWMutex
+	intentCache          []*domain.Intent
+	intentMerkleRoot     *util.MerkleNode
+	intentMerkleRootHash string
 }
 
 const (
@@ -69,7 +75,25 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 	if err != nil {
 		return err
 	}
-	// TODO: update intent map and update merkle tree
+
+	// update intent map and merkle tree
+	svc.schedulingIntentsMap.Clear()
+	normalizedIntents := normalizeIntentInputs(intents)
+	sortedIntents := sortIntentsByKey(normalizedIntents)
+	leafHashes := make([]string, 0, len(sortedIntents))
+	for _, intent := range sortedIntents {
+		leafHashes = append(leafHashes, hashIntent(intent))
+	}
+	root := util.BuildMerkleTree(leafHashes)
+	svc.intentCacheMu.Lock()
+	svc.intentCache = normalizedIntents
+	svc.intentMerkleRoot = root
+	if root != nil {
+		svc.intentMerkleRootHash = root.Hash
+	} else {
+		svc.intentMerkleRootHash = ""
+	}
+	svc.intentCacheMu.Unlock()
 	for _, intent := range intents {
 		podInfo := podInfos[intent.PodID]
 		logger.Logger(ctx).Info().Msgf("Processing intent for PodName:%s PodID: %s on NodeID: %s, Process:%+v", intent.PodName, intent.PodID, intent.NodeID, podInfo)
@@ -240,4 +264,94 @@ func (svc *Service) getProcessInfo(rootDir string, pid int) (domain.PodProcess, 
 
 func (svc *Service) UpdateMetrics(ctx context.Context, newMetricSet *domain.MetricSet) {
 	svc.metricCollector.UpdateMetrics(newMetricSet)
+}
+
+func normalizeIntentInputs(intents []*domain.Intent) []*domain.Intent {
+	results := make([]*domain.Intent, 0, len(intents))
+	for _, intent := range intents {
+		if intent == nil {
+			continue
+		}
+		results = append(results, intent)
+	}
+	return results
+}
+
+func sortIntentsByKey(intents []*domain.Intent) []*domain.Intent {
+	results := make([]*domain.Intent, 0, len(intents))
+	results = append(results, intents...)
+	sort.Slice(results, func(i, j int) bool {
+		return intentSortKey(results[i]) < intentSortKey(results[j])
+	})
+	return results
+}
+
+func hashIntent(intent *domain.Intent) string {
+	labels := make([]string, 0, len(intent.PodLabels))
+	for key, value := range intent.PodLabels {
+		labels = append(labels, key+"="+value)
+	}
+	sort.Strings(labels)
+	serialized := strings.Join([]string{
+		"podName=" + intent.PodName,
+		"podID=" + intent.PodID,
+		"nodeID=" + intent.NodeID,
+		"k8sNamespace=" + intent.K8sNamespace,
+		"commandRegex=" + intent.CommandRegex,
+		"priority=" + strconv.Itoa(intent.Priority),
+		"executionTime=" + strconv.FormatInt(intent.ExecutionTime, 10),
+		"podLabels=" + strings.Join(labels, ","),
+	}, "|")
+	return util.HashStringSHA256Hex(serialized)
+}
+
+func intentSortKey(intent *domain.Intent) string {
+	labels := make([]string, 0, len(intent.PodLabels))
+	for key, value := range intent.PodLabels {
+		labels = append(labels, key+"="+value)
+	}
+	sort.Strings(labels)
+	return strings.Join([]string{
+		intent.PodName,
+		intent.PodID,
+		intent.NodeID,
+		intent.K8sNamespace,
+		intent.CommandRegex,
+		strconv.Itoa(intent.Priority),
+		strconv.FormatInt(intent.ExecutionTime, 10),
+		strings.Join(labels, ","),
+	}, "|")
+}
+
+func (svc *Service) refreshIntentMerkleTreeIfNeeded() {
+	var hasRoot bool
+
+	svc.intentCacheMu.RLock()
+	{
+		hasRoot = svc.intentMerkleRoot != nil
+	}
+	svc.intentCacheMu.RUnlock()
+
+	if hasRoot {
+		return
+	}
+
+	svc.intentCacheMu.Lock()
+	defer svc.intentCacheMu.Unlock()
+	if svc.intentMerkleRoot != nil {
+		return
+	}
+	normalized := normalizeIntentInputs(svc.intentCache)
+	sorted := sortIntentsByKey(normalized)
+	leafHashes := make([]string, 0, len(sorted))
+	for _, intent := range sorted {
+		leafHashes = append(leafHashes, hashIntent(intent))
+	}
+	root := util.BuildMerkleTree(leafHashes)
+	svc.intentMerkleRoot = root
+	if root != nil {
+		svc.intentMerkleRootHash = root.Hash
+	} else {
+		svc.intentMerkleRootHash = ""
+	}
 }
