@@ -165,6 +165,8 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) error {
 		apiV1.DELETE("/intents", h.echoHandler(h.DeleteIntent), echo.WrapMiddleware(authMiddleware))
 		apiV1.GET("/scheduling/strategies", h.echoHandler(h.ListIntents), echo.WrapMiddleware(authMiddleware))
 		apiV1.POST("/metrics", h.echoHandler(h.UpdateMetrics), echo.WrapMiddleware(authMiddleware))
+		// pod routes
+		apiV1.GET("/pods/pids", h.echoHandler(h.GetPodsPIDs), echo.WrapMiddleware(authMiddleware))
 		// token routes
 		apiV1.POST("/auth/token", h.echoHandler(h.GenTokenHandler))
 	}
