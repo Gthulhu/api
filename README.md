@@ -17,10 +17,10 @@ This API Server adopts a dual-mode architecture, consisting of two independent s
 │                              Gthulhu Architecture                               │
 ├─────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                 │
-│   ┌─────────────┐         ┌─────────────────────┐         ┌─────────────────┐  │
-│   │    User     │ ──────▶ │      Manager        │ ──────▶ │    MongoDB      │  │
-│   │  (Web UI)   │         │ (Central Management)│         │  (Persistence)  │  │
-│   └─────────────┘         └──────────┬──────────┘         └─────────────────┘  │
+│   ┌─────────────┐         ┌─────────────────────┐         ┌─────────────────┐   │
+│   │    User     │ ──────▶ │      Manager        │ ──────▶ │    MongoDB      │   │
+│   │  (Web UI)   │         │ (Central Management)│         │  (Persistence)  │   │
+│   └─────────────┘         └──────────┬──────────┘         └─────────────────┘   │
 │                                      │                                          │
 │                                      │ Query Pods via K8s API                   │
 │                                      ▼                                          │
@@ -32,16 +32,16 @@ This API Server adopts a dual-mode architecture, consisting of two independent s
 │              ┌───────────────────────┼───────────────────────┐                  │
 │              │                       │                       │                  │
 │              ▼                       ▼                       ▼                  │
-│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐          │
-│   │ Decision Maker  │     │ Decision Maker  │     │ Decision Maker  │          │
-│   │   (Node 1)      │     │   (Node 2)      │     │   (Node N)      │          │
-│   └────────┬────────┘     └────────┬────────┘     └────────┬────────┘          │
+│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐           │
+│   │ Decision Maker  │     │ Decision Maker  │     │ Decision Maker  │           │
+│   │   (Node 1)      │     │   (Node 2)      │     │   (Node N)      │           │
+│   └────────┬────────┘     └────────┬────────┘     └────────┬────────┘           │
 │            │                       │                       │                    │
 │            ▼                       ▼                       ▼                    │
-│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐          │
-│   │  sched_ext      │     │  sched_ext      │     │  sched_ext      │          │
-│   │ (eBPF Scheduler)│     │ (eBPF Scheduler)│     │ (eBPF Scheduler)│          │
-│   └─────────────────┘     └─────────────────┘     └─────────────────┘          │
+│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐           │
+│   │  sched_ext      │     │  sched_ext      │     │  sched_ext      │           │
+│   │ (eBPF Scheduler)│     │ (eBPF Scheduler)│     │ (eBPF Scheduler)│           │
+│   └─────────────────┘     └─────────────────┘     └─────────────────┘           │
 │                                                                                 │
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -274,40 +274,7 @@ go run main.go decisionmaker -c dm_config -d /path/to/config
 
 ### 4. Test API
 
-#### Health Check
-```bash
-# Manager
-curl http://localhost:8081/health
-
-# Decision Maker
-curl http://localhost:8080/health
-```
-
-#### User Login
-```bash
-curl -X POST http://localhost:8081/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "admin@example.com",
-    "password": "your-password-here"
-  }'
-```
-
-#### Create Scheduling Strategy
-```bash
-curl -X POST http://localhost:8081/api/v1/strategies \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your-token>" \
-  -d '{
-    "strategyNamespace": "default",
-    "labelSelectors": [
-      {"key": "app", "value": "nginx"}
-    ],
-    "k8sNamespace": ["default"],
-    "priority": 10,
-    "executionTime": 20000000
-  }'
-```
+Please refer to https://github.com/Gthulhu/chart?tab=readme-ov-file#testing for testing the API endpoints using curl.
 
 ## Kubernetes Deployment
 

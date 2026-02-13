@@ -14,7 +14,9 @@ const (
 	PermissionRead         PermissionKey = "permission.read"
 	ScheduleStrategyCreate PermissionKey = "schedule_strategy.create"
 	ScheduleStrategyRead   PermissionKey = "schedule_strategy.read"
+	ScheduleStrategyDelete PermissionKey = "schedule_strategy.delete"
 	ScheduleIntentRead     PermissionKey = "schedule_intent.read"
+	ScheduleIntentDelete   PermissionKey = "schedule_intent.delete"
 )
 
 const (

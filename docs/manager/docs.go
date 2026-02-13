@@ -76,6 +76,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/intents": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete one or more schedule intents.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Strategies"
+                ],
+                "summary": "Delete schedule intents",
+                "parameters": [
+                    {
+                        "description": "Intent IDs to delete",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rest.DeleteScheduleIntentsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-github_com_Gthulhu_api_manager_rest_EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/intents/self": {
             "get": {
                 "security": [
@@ -435,6 +504,73 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a schedule strategy and its associated intents.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Strategies"
+                ],
+                "summary": "Delete schedule strategy",
+                "parameters": [
+                    {
+                        "description": "Strategy ID to delete",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/rest.DeleteScheduleStrategyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-github_com_Gthulhu_api_manager_rest_EmptyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
                         }
@@ -862,6 +998,7 @@ const docTemplate = `{
     "definitions": {
         "domain.IntentState": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
@@ -887,7 +1024,9 @@ const docTemplate = `{
                 "permission.read",
                 "schedule_strategy.create",
                 "schedule_strategy.read",
-                "schedule_intent.read"
+                "schedule_strategy.delete",
+                "schedule_intent.read",
+                "schedule_intent.delete"
             ],
             "x-enum-varnames": [
                 "CreateUser",
@@ -901,11 +1040,14 @@ const docTemplate = `{
                 "PermissionRead",
                 "ScheduleStrategyCreate",
                 "ScheduleStrategyRead",
-                "ScheduleIntentRead"
+                "ScheduleStrategyDelete",
+                "ScheduleIntentRead",
+                "ScheduleIntentDelete"
             ]
         },
         "domain.UserStatus": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 1,
                 2,
@@ -969,6 +1111,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Gthulhu_api_manager_rest.LabelSelector": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string"
+                },
+                "value": {
                     "type": "string"
                 }
             }
@@ -1145,7 +1298,7 @@ const docTemplate = `{
                 "labelSelectors": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/rest.LabelSelector"
+                        "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.LabelSelector"
                     }
                 },
                 "priority": {
@@ -1175,6 +1328,25 @@ const docTemplate = `{
                 }
             }
         },
+        "rest.DeleteScheduleIntentsRequest": {
+            "type": "object",
+            "properties": {
+                "intentIds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "rest.DeleteScheduleStrategyRequest": {
+            "type": "object",
+            "properties": {
+                "strategyId": {
+                    "type": "string"
+                }
+            }
+        },
         "rest.GetSelfUserResponse": {
             "type": "object",
             "properties": {
@@ -1191,17 +1363,6 @@ const docTemplate = `{
                     "$ref": "#/definitions/domain.UserStatus"
                 },
                 "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "rest.LabelSelector": {
-            "type": "object",
-            "properties": {
-                "key": {
-                    "type": "string"
-                },
-                "value": {
                     "type": "string"
                 }
             }
@@ -1409,7 +1570,7 @@ const docTemplate = `{
                 "labelSelectors": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/rest.LabelSelector"
+                        "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.LabelSelector"
                     }
                 },
                 "priority": {

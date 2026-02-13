@@ -40,7 +40,9 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) {
 		// strategy routes
 		apiV1.POST("/strategies", h.echoHandler(h.CreateScheduleStrategy), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleStrategyCreate)))
 		apiV1.GET("/strategies/self", h.echoHandler(h.ListSelfScheduleStrategies), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleStrategyRead)))
+		apiV1.DELETE("/strategies", h.echoHandler(h.DeleteScheduleStrategy), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleStrategyDelete)))
 		apiV1.GET("/intents/self", h.echoHandler(h.ListSelfScheduleIntents), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleIntentRead)))
+		apiV1.DELETE("/intents", h.echoHandler(h.DeleteScheduleIntents), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleIntentDelete)))
 	}
 
 }

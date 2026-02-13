@@ -75,6 +75,9 @@ func (r *repo) QueryStrategies(ctx context.Context, opt *domain.QueryStrategyOpt
 	if len(opt.K8SNamespaces) > 0 {
 		filter["k8sNamespace"] = bson.M{"$in": opt.K8SNamespaces}
 	}
+	if len(opt.CreatorIDs) > 0 {
+		filter["creatorID"] = bson.M{"$in": opt.CreatorIDs}
+	}
 	cursor, err := r.db.Collection(scheduleStrategyCollection).Find(ctx, filter)
 	if err != nil {
 		return err
@@ -111,6 +114,9 @@ func (r *repo) QueryIntents(ctx context.Context, opt *domain.QueryIntentOptions)
 	if len(opt.States) > 0 {
 		filter["state"] = bson.M{"$in": opt.States}
 	}
+	if len(opt.CreatorIDs) > 0 {
+		filter["creatorID"] = bson.M{"$in": opt.CreatorIDs}
+	}
 	cursor, err := r.db.Collection(scheduleIntentCollection).Find(ctx, filter)
 	if err != nil {
 		return err
@@ -125,4 +131,22 @@ func (r *repo) QueryIntents(ctx context.Context, opt *domain.QueryIntentOptions)
 		opt.Result = append(opt.Result, &intent)
 	}
 	return cursor.Err()
+}
+
+func (r *repo) DeleteStrategy(ctx context.Context, strategyID bson.ObjectID) error {
+	_, err := r.db.Collection(scheduleStrategyCollection).DeleteOne(ctx, bson.M{"_id": strategyID})
+	return err
+}
+
+func (r *repo) DeleteIntents(ctx context.Context, intentIDs []bson.ObjectID) error {
+	if len(intentIDs) == 0 {
+		return nil
+	}
+	_, err := r.db.Collection(scheduleIntentCollection).DeleteMany(ctx, bson.M{"_id": bson.M{"$in": intentIDs}})
+	return err
+}
+
+func (r *repo) DeleteIntentsByStrategyID(ctx context.Context, strategyID bson.ObjectID) error {
+	_, err := r.db.Collection(scheduleIntentCollection).DeleteMany(ctx, bson.M{"strategyID": strategyID})
+	return err
 }

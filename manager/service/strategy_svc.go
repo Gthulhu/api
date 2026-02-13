@@ -105,3 +105,202 @@ func (svc *Service) ListScheduleStrategies(ctx context.Context, filterOpts *doma
 func (svc *Service) ListScheduleIntents(ctx context.Context, filterOpts *domain.QueryIntentOptions) error {
 	return svc.Repo.QueryIntents(ctx, filterOpts)
 }
+
+func (svc *Service) DeleteScheduleStrategy(ctx context.Context, operator *domain.Claims, strategyID string) error {
+	strategyObjID, err := bson.ObjectIDFromHex(strategyID)
+	if err != nil {
+		return errors.WithMessagef(err, "invalid strategy ID %s", strategyID)
+	}
+
+	operatorID, err := operator.GetBsonObjectUID()
+	if err != nil {
+		return errors.WithMessagef(err, "invalid operator ID %s", operator.UID)
+	}
+
+	// Check if strategy exists and belongs to the operator
+	queryOpt := &domain.QueryStrategyOptions{
+		IDs:        []bson.ObjectID{strategyObjID},
+		CreatorIDs: []bson.ObjectID{operatorID},
+	}
+	err = svc.Repo.QueryStrategies(ctx, queryOpt)
+	if err != nil {
+		return err
+	}
+	if len(queryOpt.Result) == 0 {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "strategy not found or you don't have permission to delete it", nil)
+	}
+
+	// Query intents associated with this strategy to get node IDs and pod IDs for DM notification
+	intentQueryOpt := &domain.QueryIntentOptions{
+		StrategyIDs: []bson.ObjectID{strategyObjID},
+	}
+	err = svc.Repo.QueryIntents(ctx, intentQueryOpt)
+	if err != nil {
+		return fmt.Errorf("query intents for strategy: %w", err)
+	}
+
+	// Collect unique node IDs and pod IDs from intents
+	nodeIDsMap := make(map[string]struct{})
+	podIDsMap := make(map[string]struct{})
+	for _, intent := range intentQueryOpt.Result {
+		nodeIDsMap[intent.NodeID] = struct{}{}
+		podIDsMap[intent.PodID] = struct{}{}
+	}
+	nodeIDs := make([]string, 0, len(nodeIDsMap))
+	for nodeID := range nodeIDsMap {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	podIDs := make([]string, 0, len(podIDsMap))
+	for podID := range podIDsMap {
+		podIDs = append(podIDs, podID)
+	}
+
+	// Delete associated intents first
+	err = svc.Repo.DeleteIntentsByStrategyID(ctx, strategyObjID)
+	if err != nil {
+		return fmt.Errorf("delete intents by strategy ID: %w", err)
+	}
+
+	// Delete the strategy
+	err = svc.Repo.DeleteStrategy(ctx, strategyObjID)
+	if err != nil {
+		return fmt.Errorf("delete strategy: %w", err)
+	}
+
+	// Notify decision makers to remove intents from their in-memory cache
+	if len(nodeIDs) > 0 && len(podIDs) > 0 {
+		dmLabel := domain.LabelSelector{
+			Key:   "app",
+			Value: "decisionmaker",
+		}
+		dmQueryOpt := &domain.QueryDecisionMakerPodsOptions{
+			DecisionMakerLabel: dmLabel,
+			NodeIDs:            nodeIDs,
+		}
+		dmPods, err := svc.K8SAdapter.QueryDecisionMakerPods(ctx, dmQueryOpt)
+		if err != nil {
+			logger.Logger(ctx).Warn().Err(err).Msg("failed to query decision maker pods for deletion notification")
+		} else {
+			deleteReq := &domain.DeleteIntentsRequest{
+				PodIDs: podIDs,
+			}
+			for _, dmPod := range dmPods {
+				if err := svc.DMAdapter.DeleteSchedulingIntents(ctx, dmPod, deleteReq); err != nil {
+					logger.Logger(ctx).Warn().Err(err).Msgf("failed to notify decision maker %s to delete intents", dmPod.NodeID)
+				}
+			}
+		}
+	}
+
+	logger.Logger(ctx).Info().Msgf("deleted strategy %s and its associated intents", strategyID)
+	return nil
+}
+
+func (svc *Service) DeleteScheduleIntents(ctx context.Context, operator *domain.Claims, intentIDs []string) error {
+	if len(intentIDs) == 0 {
+		return nil
+	}
+
+	operatorID, err := operator.GetBsonObjectUID()
+	if err != nil {
+		return errors.WithMessagef(err, "invalid operator ID %s", operator.UID)
+	}
+
+	intentObjIDs := make([]bson.ObjectID, 0, len(intentIDs))
+	for _, id := range intentIDs {
+		objID, err := bson.ObjectIDFromHex(id)
+		if err != nil {
+			return errors.WithMessagef(err, "invalid intent ID %s", id)
+		}
+		intentObjIDs = append(intentObjIDs, objID)
+	}
+
+	// Check if intents exist and belong to the operator
+	queryOpt := &domain.QueryIntentOptions{
+		IDs:        intentObjIDs,
+		CreatorIDs: []bson.ObjectID{operatorID},
+	}
+	err = svc.Repo.QueryIntents(ctx, queryOpt)
+	if err != nil {
+		return err
+	}
+
+	// Verify that all requested intents exist, are returned by the query,
+	// and are owned by the current operator.
+	if len(queryOpt.Result) == 0 {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "one or more intents not found or you don't have permission to delete them", nil)
+	}
+
+	// Build a set of requested intent IDs for exact ID matching.
+	requestedIDs := make(map[bson.ObjectID]struct{}, len(intentObjIDs))
+	for _, id := range intentObjIDs {
+		requestedIDs[id] = struct{}{}
+	}
+
+	matchedCount := 0
+	for _, intent := range queryOpt.Result {
+		// Ensure the intent belongs to the operator.
+		if intent.CreatorID != operatorID {
+			return errs.NewHTTPStatusError(http.StatusNotFound, "one or more intents not found or you don't have permission to delete them", nil)
+		}
+
+		// Ensure the intent is one of the requested IDs.
+		if _, ok := requestedIDs[intent.ID]; ok {
+			matchedCount++
+		}
+	}
+
+	if matchedCount != len(intentObjIDs) {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "one or more intents not found or you don't have permission to delete them", nil)
+	}
+
+	// Collect unique node IDs and pod IDs for DM notification before deleting
+	nodeIDsMap := make(map[string]struct{})
+	podIDsMap := make(map[string]struct{})
+	for _, intent := range queryOpt.Result {
+		nodeIDsMap[intent.NodeID] = struct{}{}
+		podIDsMap[intent.PodID] = struct{}{}
+	}
+	nodeIDs := make([]string, 0, len(nodeIDsMap))
+	for nodeID := range nodeIDsMap {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+	podIDs := make([]string, 0, len(podIDsMap))
+	for podID := range podIDsMap {
+		podIDs = append(podIDs, podID)
+	}
+
+	// Delete the intents
+	err = svc.Repo.DeleteIntents(ctx, intentObjIDs)
+	if err != nil {
+		return fmt.Errorf("delete intents: %w", err)
+	}
+
+	// Notify decision makers to remove intents from their in-memory cache
+	if len(nodeIDs) > 0 && len(podIDs) > 0 {
+		dmLabel := domain.LabelSelector{
+			Key:   "app",
+			Value: "decisionmaker",
+		}
+		dmQueryOpt := &domain.QueryDecisionMakerPodsOptions{
+			DecisionMakerLabel: dmLabel,
+			NodeIDs:            nodeIDs,
+		}
+		dmPods, err := svc.K8SAdapter.QueryDecisionMakerPods(ctx, dmQueryOpt)
+		if err != nil {
+			logger.Logger(ctx).Warn().Err(err).Msg("failed to query decision maker pods for deletion notification")
+		} else {
+			deleteReq := &domain.DeleteIntentsRequest{
+				PodIDs: podIDs,
+			}
+			for _, dmPod := range dmPods {
+				if err := svc.DMAdapter.DeleteSchedulingIntents(ctx, dmPod, deleteReq); err != nil {
+					logger.Logger(ctx).Warn().Err(err).Msgf("failed to notify decision maker %s to delete intents", dmPod.NodeID)
+				}
+			}
+		}
+	}
+
+	logger.Logger(ctx).Info().Msgf("deleted %d intents", len(intentIDs))
+	return nil
+}

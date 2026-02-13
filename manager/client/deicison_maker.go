@@ -151,3 +151,67 @@ func (dm *DecisionMakerClient) GetToken(ctx context.Context, decisionMaker *doma
 	return tokenResp.Data.Token, nil
 
 }
+
+func (dm *DecisionMakerClient) DeleteSchedulingIntents(ctx context.Context, decisionMaker *domain.DecisionMakerPod, req *domain.DeleteIntentsRequest) error {
+	token, err := dm.GetToken(ctx, decisionMaker)
+	if err != nil {
+		return err
+	}
+
+	logger.Logger(ctx).Debug().Msgf("Deleting scheduling intents from decision maker pod (host:%s nodeID:%s port:%d)", decisionMaker.Host, decisionMaker.NodeID, decisionMaker.Port)
+
+	// If All is true, delete all intents; otherwise delete by PodIDs one by one
+	if req.All {
+		deleteReq := dmrest.DeleteIntentRequest{
+			All: true,
+		}
+		jsonBody, err := json.Marshal(deleteReq)
+		if err != nil {
+			return err
+		}
+		endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			return err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+		resp, err := dm.Client.Do(httpReq)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("decision maker %s returned non-OK status: %s", decisionMaker, resp.Status)
+		}
+		return nil
+	}
+
+	// Delete intents by PodID
+	for _, podID := range req.PodIDs {
+		deleteReq := dmrest.DeleteIntentRequest{
+			PodID: podID,
+		}
+		jsonBody, err := json.Marshal(deleteReq)
+		if err != nil {
+			return err
+		}
+		endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(jsonBody))
+		if err != nil {
+			return err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", "Bearer "+token)
+		resp, err := dm.Client.Do(httpReq)
+		if err != nil {
+			return err
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return fmt.Errorf("decision maker %s returned non-OK status for podID %s: %s", decisionMaker, podID, resp.Status)
+		}
+	}
+
+	return nil
+}

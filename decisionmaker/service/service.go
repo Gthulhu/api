@@ -109,6 +109,9 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 				if process.Command == pauseCommand {
 					continue
 				}
+				if !regexp.MustCompile(intent.CommandRegex).MatchString(process.Command) {
+					continue
+				}
 				schedulingIntent := &domain.SchedulingIntents{
 					Priority:      intent.Priority > 0,
 					ExecutionTime: uint64(intent.ExecutionTime),
@@ -211,9 +214,10 @@ func (svc *Service) parseCgroupToPodInfo(rootDir string, line string, pid int, p
 	return nil
 }
 
-var (
-	podRegex = regexp.MustCompile(`pod([0-9a-fA-F_]+)(?:\.slice)?`)
-)
+// Support multiple cgroup formats:
+// - systemd: kubelet-kubepods-pod20da609e_6973_4463_a1f9_2db9bcc5becc.slice (underscores)
+// - cgroupfs: /kubepods/burstable/pod31e4e721-a5a0-421a-ae1d-b7971ae30d6e/ (dashes)
+var podRegex = regexp.MustCompile(`pod([0-9a-fA-F]{8}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{12})`)
 
 // getPodInfoFromCgroup extracts pod information from cgroup path
 func (svc *Service) getPodInfoFromCgroup(cgroupPath string) (podUID string, containerID string, err error) {
@@ -354,4 +358,43 @@ func (svc *Service) refreshIntentMerkleTreeIfNeeded() {
 	} else {
 		svc.intentMerkleRootHash = ""
 	}
+
+// DeleteIntentByPodID deletes all scheduling intents for a specific pod ID
+func (svc *Service) DeleteIntentByPodID(ctx context.Context, podID string) error {
+	keysToDelete := []string{}
+	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
+		if strings.HasPrefix(key, podID+"-") {
+			keysToDelete = append(keysToDelete, key)
+		}
+		return true
+	})
+	for _, key := range keysToDelete {
+		svc.schedulingIntentsMap.Delete(key)
+	}
+	logger.Logger(ctx).Info().Msgf("Deleted %d scheduling intents for pod ID: %s", len(keysToDelete), podID)
+	return nil
+}
+
+// DeleteIntentByPID deletes a specific scheduling intent by pod ID and PID
+func (svc *Service) DeleteIntentByPID(ctx context.Context, podID string, pid int) error {
+	key := fmt.Sprintf("%s-%d", podID, pid)
+	svc.schedulingIntentsMap.Delete(key)
+	logger.Logger(ctx).Info().Msgf("Deleted scheduling intent for key: %s", key)
+	return nil
+}
+
+// DeleteAllIntents clears all scheduling intents
+func (svc *Service) DeleteAllIntents(ctx context.Context) error {
+	keysToDelete := []string{}
+	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
+		keysToDelete = append(keysToDelete, key)
+		return true
+	})
+
+	for _, key := range keysToDelete {
+		svc.schedulingIntentsMap.Delete(key)
+	}
+
+	logger.Logger(ctx).Info().Msgf("Deleted all %d scheduling intents", len(keysToDelete))
+	return nil
 }

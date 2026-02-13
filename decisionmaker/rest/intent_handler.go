@@ -132,3 +132,47 @@ func convertMapToLabelSelectors(selectorMap []domain.LabelSelector) []LabelSelec
 	}
 	return labelSelectors
 }
+
+type DeleteIntentRequest struct {
+	PodID string `json:"podId,omitempty"` // If provided, deletes all intents for this pod
+	PID   *int   `json:"pid,omitempty"`   // If provided with PodID, deletes specific intent
+	All   bool   `json:"all,omitempty"`   // If true, deletes all intents
+}
+
+func (h *Handler) DeleteIntent(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req DeleteIntentRequest
+	err := h.JSONBind(r, &req)
+	if err != nil {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Invalid request payload", err)
+		return
+	}
+
+	if req.All {
+		err = h.Service.DeleteAllIntents(ctx)
+		if err != nil {
+			h.ErrorResponse(ctx, w, http.StatusInternalServerError, "Failed to delete all intents", err)
+			return
+		}
+		h.JSONResponse(ctx, w, http.StatusOK, NewSuccessResponse[EmptyResponse](nil))
+		return
+	}
+
+	if req.PodID == "" {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "PodID is required when 'all' is false", nil)
+		return
+	}
+
+	if req.PID != nil {
+		err = h.Service.DeleteIntentByPID(ctx, req.PodID, *req.PID)
+	} else {
+		err = h.Service.DeleteIntentByPodID(ctx, req.PodID)
+	}
+
+	if err != nil {
+		h.ErrorResponse(ctx, w, http.StatusInternalServerError, "Failed to delete intent", err)
+		return
+	}
+
+	h.JSONResponse(ctx, w, http.StatusOK, NewSuccessResponse[EmptyResponse](nil))
+}
