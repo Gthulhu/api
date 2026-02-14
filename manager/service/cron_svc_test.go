@@ -100,13 +100,13 @@ func TestCheckDMIntentsHappyPathOnlineOnly(t *testing.T) {
 	mockDM := domain.NewMockDecisionMakerAdapter(t)
 
 	onlineDM := &domain.DecisionMakerPod{
-		NodeID: "node-online",
+		NodeID: "node-a",
 		Host:   "127.0.0.1",
 		Port:   8080,
 		State:  domain.NodeStateOnline,
 	}
 	offlineDM := &domain.DecisionMakerPod{
-		NodeID: "node-offline",
+		NodeID: "node-b",
 		Host:   "127.0.0.1",
 		Port:   8081,
 		State:  domain.NodeStateOffline,
@@ -137,7 +137,7 @@ func TestCheckDMIntentsHappyPathOnlineOnly(t *testing.T) {
 			},
 		},
 	}
-	expectedRoot := buildExpectedScheduleIntentRootHash(intents)
+	expectedRoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intents[1]})
 
 	mockK8S.EXPECT().
 		QueryDecisionMakerPods(mock.Anything, mock.Anything).
@@ -153,6 +153,97 @@ func TestCheckDMIntentsHappyPathOnlineOnly(t *testing.T) {
 	mockDM.EXPECT().
 		GetIntentMerkleRoot(mock.Anything, onlineDM).
 		Return(expectedRoot, nil).
+		Once()
+
+	svc := &Service{
+		K8SAdapter: mockK8S,
+		Repo:       mockRepo,
+		DMAdapter:  mockDM,
+	}
+
+	err := svc.CheckDMIntents(ctx)
+	require.NoError(t, err)
+}
+
+func TestCheckDMIntentsComparesNodeScopedMerkleRoots(t *testing.T) {
+	ctx := context.Background()
+	mockK8S := domain.NewMockK8SAdapter(t)
+	mockRepo := domain.NewMockRepository(t)
+	mockDM := domain.NewMockDecisionMakerAdapter(t)
+
+	dmNodeA := &domain.DecisionMakerPod{
+		NodeID: "node-a",
+		Host:   "127.0.0.1",
+		Port:   8080,
+		State:  domain.NodeStateOnline,
+	}
+	dmNodeB := &domain.DecisionMakerPod{
+		NodeID: "node-b",
+		Host:   "127.0.0.1",
+		Port:   8081,
+		State:  domain.NodeStateOnline,
+	}
+
+	intents := []*domain.ScheduleIntent{
+		{
+			PodName:       "pod-a-1",
+			PodID:         "pod-id-a-1",
+			NodeID:        "node-a",
+			K8sNamespace:  "ns-a",
+			CommandRegex:  "nginx",
+			Priority:      1,
+			ExecutionTime: 11,
+			PodLabels: map[string]string{
+				"app": "api",
+			},
+		},
+		{
+			PodName:       "pod-b-1",
+			PodID:         "pod-id-b-1",
+			NodeID:        "node-b",
+			K8sNamespace:  "ns-b",
+			CommandRegex:  "redis",
+			Priority:      0,
+			ExecutionTime: 22,
+			PodLabels: map[string]string{
+				"tier": "cache",
+			},
+		},
+		{
+			PodName:       "pod-a-2",
+			PodID:         "pod-id-a-2",
+			NodeID:        "node-a",
+			K8sNamespace:  "ns-a",
+			CommandRegex:  "busybox",
+			Priority:      0,
+			ExecutionTime: 33,
+			PodLabels: map[string]string{
+				"job": "worker",
+			},
+		},
+	}
+
+	expectedNodeARoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intents[0], intents[2]})
+	expectedNodeBRoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intents[1]})
+
+	mockK8S.EXPECT().
+		QueryDecisionMakerPods(mock.Anything, mock.Anything).
+		Return([]*domain.DecisionMakerPod{dmNodeA, dmNodeB}, nil).
+		Once()
+	mockRepo.EXPECT().
+		QueryIntents(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryIntentOptions) {
+			opt.Result = intents
+		}).
+		Return(nil).
+		Once()
+	mockDM.EXPECT().
+		GetIntentMerkleRoot(mock.Anything, dmNodeA).
+		Return(expectedNodeARoot, nil).
+		Once()
+	mockDM.EXPECT().
+		GetIntentMerkleRoot(mock.Anything, dmNodeB).
+		Return(expectedNodeBRoot, nil).
 		Once()
 
 	svc := &Service{
@@ -196,6 +287,11 @@ func TestSortScheduleIntentsByKeyAndHashDeterministic(t *testing.T) {
 	require.Len(t, sorted, 2)
 	assert.Equal(t, intentA.PodName, sorted[0].PodName)
 	assert.Equal(t, intentB.PodName, sorted[1].PodName)
+	assert.Equal(
+		t,
+		util.HashStringSHA256Hex("podName=pod-a|podID=pod-id-a|nodeID=node-a|k8sNamespace=default|commandRegex=nginx|priority=1|executionTime=10|podLabels=a=1,b=2"),
+		hashScheduleIntent(intentA),
+	)
 	assert.Equal(t, hashScheduleIntent(intentA), hashScheduleIntent(&domain.ScheduleIntent{
 		PodName:       intentA.PodName,
 		PodID:         intentA.PodID,
@@ -209,17 +305,4 @@ func TestSortScheduleIntentsByKeyAndHashDeterministic(t *testing.T) {
 			"b": "2",
 		},
 	}))
-}
-
-func buildExpectedScheduleIntentRootHash(intents []*domain.ScheduleIntent) string {
-	leafHashes := make([]string, 0, len(intents))
-	sorted := sortScheduleIntentsByKey(intents)
-	for _, intent := range sorted {
-		leafHashes = append(leafHashes, hashScheduleIntent(intent))
-	}
-	root := util.BuildMerkleTree(leafHashes)
-	if root == nil {
-		return ""
-	}
-	return root.Hash
 }

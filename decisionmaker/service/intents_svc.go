@@ -22,17 +22,16 @@ type TraverseIntentMerkleTreeResp struct {
 	RootNode *Node
 }
 
-// TODO: TraverseIntentMerkleTree
 func (svc *Service) TraverseIntentMerkleTree(ctx context.Context, req *TraverseIntentMerkleTreeOptions) (resp *TraverseIntentMerkleTreeResp, err error) {
 	if req == nil {
 		return nil, errors.New("nil request")
 	}
 
-	if svc.intentMerkleRoot == nil {
-		svc.refreshIntentMerkleTreeIfNeeded()
-	}
+	svc.refreshIntentMerkleTreeIfNeeded()
 
+	svc.intentCacheMu.RLock()
 	root := svc.intentMerkleRoot
+	svc.intentCacheMu.RUnlock()
 	if req.RootHash != "" && root != nil {
 		found := util.FindMerkleNode(root, req.RootHash)
 		if found == nil {

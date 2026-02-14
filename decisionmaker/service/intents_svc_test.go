@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/Gthulhu/api/decisionmaker/domain"
@@ -158,4 +160,51 @@ func TestHashIntentLabelOrderIndependent(t *testing.T) {
 	hashB := hashIntent(intentB)
 	assert.Equal(t, hashA, hashB)
 	assert.Equal(t, util.HashStringSHA256Hex("podName=pod|podID=pod-id|nodeID=node-id|k8sNamespace=default|commandRegex=nginx|priority=1|executionTime=42|podLabels=a=1,b=2"), hashA)
+}
+
+func TestTraverseIntentMerkleTreeConcurrentReadWrite(t *testing.T) {
+	svc := &Service{
+		intentMerkleRoot: util.BuildMerkleTree([]string{util.HashStringSHA256Hex("initial")}),
+	}
+
+	const workers = 4
+	const iterations = 200
+
+	errCh := make(chan error, workers*iterations)
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < iterations; i++ {
+			root := util.BuildMerkleTree([]string{util.HashStringSHA256Hex(fmt.Sprintf("leaf-%d", i))})
+			svc.intentCacheMu.Lock()
+			svc.intentMerkleRoot = root
+			svc.intentCacheMu.Unlock()
+		}
+	}()
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < iterations; j++ {
+				resp, err := svc.TraverseIntentMerkleTree(context.Background(), &TraverseIntentMerkleTreeOptions{Depth: 0})
+				if err != nil {
+					errCh <- err
+					return
+				}
+				if resp == nil || resp.RootNode == nil || resp.RootNode.Hash == "" {
+					errCh <- fmt.Errorf("unexpected nil/empty root node: %+v", resp)
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		require.NoError(t, err)
+	}
 }
