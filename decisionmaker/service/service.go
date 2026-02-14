@@ -358,6 +358,7 @@ func (svc *Service) refreshIntentMerkleTreeIfNeeded() {
 	} else {
 		svc.intentMerkleRootHash = ""
 	}
+}
 
 // DeleteIntentByPodID deletes all scheduling intents for a specific pod ID
 func (svc *Service) DeleteIntentByPodID(ctx context.Context, podID string) error {
