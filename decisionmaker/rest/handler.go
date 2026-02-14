@@ -56,7 +56,7 @@ type SuccessResponse[T any] struct {
 
 type Params struct {
 	fx.In
-	Service     service.Service
+	Service     *service.Service
 	TokenConfig config.TokenConfig
 }
 
@@ -68,7 +68,7 @@ func NewHandler(params Params) (*Handler, error) {
 }
 
 type Handler struct {
-	Service     service.Service
+	Service     *service.Service
 	TokenConfig config.TokenConfig
 }
 

@@ -25,12 +25,12 @@ type Params struct {
 	TokenConfig config.TokenConfig
 }
 
-func NewService(params Params) (Service, error) {
+func NewService(params Params) (*Service, error) {
 	privateKey, err := util.InitRSAPrivateKey(string(params.TokenConfig.RsaPrivateKeyPem))
 	if err != nil {
-		return Service{}, fmt.Errorf("failed to initialize JWT private key: %v", err)
+		return nil, fmt.Errorf("failed to initialize JWT private key: %v", err)
 	}
-	svc := Service{
+	svc := &Service{
 		schedulingIntentsMap: util.NewGenericMap[string, []*domain.SchedulingIntents](),
 		metricCollector:      NewMetricCollector(util.GetMachineID()),
 		jwtPrivateKey:        privateKey,
@@ -38,7 +38,7 @@ func NewService(params Params) (Service, error) {
 
 	err = prometheus.Register(svc.metricCollector)
 	if err != nil {
-		return Service{}, fmt.Errorf("failed to register metric collector: %v", err)
+		return nil, fmt.Errorf("failed to register metric collector: %v", err)
 	}
 	return svc, nil
 }
