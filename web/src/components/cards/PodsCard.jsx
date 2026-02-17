@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Container, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+import { Container, RefreshCw, Maximize2, Minimize2, Server, ChevronDown } from 'lucide-react';
 
 function truncateText(text, maxLen) {
   if (!text) return '--';
@@ -27,22 +20,60 @@ function formatTimestamp(isoString) {
 export default function PodsCard() {
   const { isAuthenticated, makeAuthenticatedRequest, showToast } = useApp();
   const [pods, setPods] = useState([]);
+  const [nodes, setNodes] = useState([]);
   const [nodeName, setNodeName] = useState('--');
+  const [nodeID, setNodeID] = useState('');
   const [totalProcesses, setTotalProcesses] = useState(0);
   const [lastUpdated, setLastUpdated] = useState('--');
-  const [rawResult, setRawResult] = useState('Authenticate to view pod-PID mappings...');
+  const [rawResult, setRawResult] = useState('Select a node to view pod-PID mappings...');
   const [resultClass, setResultClass] = useState('');
   const [expandedPods, setExpandedPods] = useState(new Set());
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingNodes, setLoadingNodes] = useState(false);
   const intervalRef = useRef(null);
 
-  const getPodPids = useCallback(async () => {
+  // Fetch available nodes
+  const fetchNodes = useCallback(async () => {
     if (!isAuthenticated) return;
+    
+    setLoadingNodes(true);
+    try {
+      const response = await makeAuthenticatedRequest('/api/v1/nodes');
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.nodes) {
+        setNodes(data.data.nodes);
+        showToast('success', `Found ${data.data.nodes.length} node(s)`);
+      } else {
+        setNodes([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch nodes:', error);
+      setNodes([]);
+    } finally {
+      setLoadingNodes(false);
+    }
+  }, [isAuthenticated, makeAuthenticatedRequest, showToast]);
+
+  // Fetch nodes when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNodes();
+    }
+  }, [isAuthenticated, fetchNodes]);
+
+  const getPodPids = useCallback(async (targetNodeID) => {
+    const nodeToQuery = targetNodeID || nodeID;
+    if (!isAuthenticated) return;
+    if (!nodeToQuery) {
+      showToast('warning', 'Please select a node');
+      return;
+    }
     
     setLoading(true);
     try {
-      const response = await makeAuthenticatedRequest('/api/v1/pods/pids');
+      const response = await makeAuthenticatedRequest(`/api/v1/nodes/${encodeURIComponent(nodeToQuery)}/pods/pids`);
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -75,7 +106,23 @@ export default function PodsCard() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, makeAuthenticatedRequest, showToast]);
+  }, [isAuthenticated, makeAuthenticatedRequest, showToast, nodeID]);
+
+  const handleNodeChange = useCallback((e) => {
+    const selectedNodeID = e.target.value;
+    setNodeID(selectedNodeID);
+    if (selectedNodeID) {
+      getPodPids(selectedNodeID);
+    } else {
+      // Clear data when no node selected
+      setPods([]);
+      setNodeName('--');
+      setTotalProcesses(0);
+      setLastUpdated('--');
+      setRawResult('Select a node to view pod-PID mappings...');
+      setResultClass('');
+    }
+  }, [getPodPids]);
 
   useEffect(() => {
     const handleRefresh = () => getPodPids();
@@ -84,8 +131,8 @@ export default function PodsCard() {
   }, [getPodPids]);
 
   useEffect(() => {
-    if (autoRefresh && isAuthenticated) {
-      intervalRef.current = setInterval(getPodPids, 5000);
+    if (autoRefresh && isAuthenticated && nodeID) {
+      intervalRef.current = setInterval(() => getPodPids(), 5000);
       getPodPids();
       showToast('info', 'Pod-PID auto-refresh enabled (5s interval)');
     } else {
@@ -100,7 +147,7 @@ export default function PodsCard() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [autoRefresh, isAuthenticated, getPodPids, showToast]);
+  }, [autoRefresh, isAuthenticated, nodeID, getPodPids, showToast]);
 
   const togglePod = (podUid) => {
     setExpandedPods(prev => {
@@ -140,14 +187,6 @@ export default function PodsCard() {
           <h2>Pod-PID Mapping</h2>
         </div>
         <div className="card-actions">
-          <button 
-            className="icon-btn auth-required" 
-            onClick={getPodPids}
-            title="Load Pod-PID Mappings" 
-            disabled={!isAuthenticated}
-          >
-            <RefreshCw size={16} />
-          </button>
           <button className="icon-btn" onClick={() => toggleAllPods(true)} title="Expand All">
             <Maximize2 size={16} />
           </button>
@@ -160,16 +199,59 @@ export default function PodsCard() {
               id="podPidsAutoRefresh"
               checked={autoRefresh}
               onChange={handleToggleAutoRefresh}
+              disabled={!nodeID}
             />
             <label htmlFor="podPidsAutoRefresh">Auto</label>
           </div>
         </div>
       </div>
       <div className="card-body">
+        {/* Node Selector Section */}
+        <div className="node-selector">
+          <div className="node-input-group">
+            <Server size={16} className="node-input-icon" />
+            <div className="node-select-wrapper">
+              <select
+                className="node-select"
+                value={nodeID}
+                onChange={handleNodeChange}
+                disabled={!isAuthenticated || loading || loadingNodes}
+              >
+                <option value="">
+                  {loadingNodes ? 'Loading nodes...' : '-- Select a Node --'}
+                </option>
+                {nodes.map((node) => (
+                  <option key={node.name} value={node.name}>
+                    {node.name} ({node.status})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="select-chevron" />
+            </div>
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={fetchNodes}
+              disabled={!isAuthenticated || loadingNodes}
+              title="Refresh node list"
+            >
+              {loadingNodes ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+            </button>
+            <button 
+              className="btn btn-primary btn-sm"
+              onClick={() => getPodPids()}
+              disabled={!isAuthenticated || loading || !nodeID}
+              title="Refresh Pod-PID mappings"
+            >
+              {loading ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+              <span>Load</span>
+            </button>
+          </div>
+        </div>
+
         <div className="pods-summary" id="podsSummary">
           <div className="summary-item">
             <span className="summary-value" id="nodeNameDisplay">{nodeName}</span>
-            <span className="summary-label">Node</span>
+            <span className="summary-label">Node Name</span>
           </div>
           <div className="summary-item">
             <span className="summary-value" id="podsCount">{pods.length || '--'}</span>
@@ -187,7 +269,11 @@ export default function PodsCard() {
         <div className="pods-accordion" id="podsAccordion">
           {pods.length === 0 ? (
             <div className="pods-empty-state">
-              {isAuthenticated ? 'No pods found on this node' : 'Authenticate to view pod-PID mappings...'}
+              {!isAuthenticated 
+                ? 'Authenticate to view pod-PID mappings...' 
+                : !nodeID 
+                  ? 'Select a node above to view pod-PID mappings'
+                  : 'No pods found on this node'}
             </div>
           ) : (
             pods.map((pod, podIndex) => {

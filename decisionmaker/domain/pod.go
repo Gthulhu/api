@@ -16,6 +16,7 @@ type PodInfo struct {
 }
 
 type Intent struct {
+	IntentID      string            `json:"intentID,omitempty"`
 	PodName       string            `json:"podName,omitempty"`
 	PodID         string            `json:"podID,omitempty"`
 	NodeID        string            `json:"nodeID,omitempty"`

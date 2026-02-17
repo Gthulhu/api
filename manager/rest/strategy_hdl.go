@@ -333,3 +333,127 @@ func (h *Handler) DeleteScheduleIntents(w http.ResponseWriter, r *http.Request) 
 	response := NewSuccessResponse[EmptyResponse](&EmptyResponse{})
 	h.JSONResponse(ctx, w, http.StatusOK, response)
 }
+
+// GetNodePodPIDMappingResponse is the response structure for the GET /api/v1/nodes/:nodeID/pods/pids endpoint
+type GetNodePodPIDMappingResponse struct {
+	Pods      []PodPIDInfo `json:"pods"`
+	Timestamp string       `json:"timestamp"`
+	NodeName  string       `json:"node_name"`
+	NodeID    string       `json:"node_id,omitempty"`
+}
+
+// PodPIDInfo represents pod information with associated processes (for API response)
+type PodPIDInfo struct {
+	PodUID    string          `json:"pod_uid"`
+	PodID     string          `json:"pod_id,omitempty"`
+	Processes []PodPIDProcess `json:"processes"`
+}
+
+// PodPIDProcess represents a process information within a pod (for API response)
+type PodPIDProcess struct {
+	PID         int    `json:"pid"`
+	Command     string `json:"command"`
+	PPID        int    `json:"ppid,omitempty"`
+	ContainerID string `json:"container_id,omitempty"`
+}
+
+// GetNodePodPIDMapping godoc
+// @Summary Get Pod-PID mapping for a specific node
+// @Description Returns all pods running on the specified node with their associated process IDs
+// @Tags Nodes
+// @Produce json
+// @Security BearerAuth
+// @Param nodeID path string true "Node ID"
+// @Success 200 {object} SuccessResponse[GetNodePodPIDMappingResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/nodes/{nodeID}/pods/pids [get]
+func (h *Handler) GetNodePodPIDMapping(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	nodeID := h.GetPathParam(r, "nodeID")
+	if nodeID == "" {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Node ID is required", nil)
+		return
+	}
+
+	result, err := h.Svc.GetPodPIDMapping(ctx, nodeID)
+	if err != nil {
+		h.HandleError(ctx, w, err)
+		return
+	}
+
+	// Convert domain response to REST response
+	resp := GetNodePodPIDMappingResponse{
+		Pods:      make([]PodPIDInfo, len(result.Pods)),
+		Timestamp: result.Timestamp,
+		NodeName:  result.NodeName,
+		NodeID:    result.NodeID,
+	}
+	for i, pod := range result.Pods {
+		processes := make([]PodPIDProcess, len(pod.Processes))
+		for j, proc := range pod.Processes {
+			processes[j] = PodPIDProcess{
+				PID:         proc.PID,
+				Command:     proc.Command,
+				PPID:        proc.PPID,
+				ContainerID: proc.ContainerID,
+			}
+		}
+		resp.Pods[i] = PodPIDInfo{
+			PodUID:    pod.PodUID,
+			PodID:     pod.PodID,
+			Processes: processes,
+		}
+	}
+
+	response := NewSuccessResponse[GetNodePodPIDMappingResponse](&resp)
+	h.JSONResponse(ctx, w, http.StatusOK, response)
+}
+
+// NodeInfo represents node information for API response
+type NodeInfo struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// ListNodesResponse is the response structure for the GET /api/v1/nodes endpoint
+type ListNodesResponse struct {
+	Nodes []NodeInfo `json:"nodes"`
+}
+
+// ListNodes godoc
+// @Summary List all Kubernetes nodes
+// @Description Returns all nodes in the Kubernetes cluster
+// @Tags Nodes
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse[ListNodesResponse]
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/nodes [get]
+func (h *Handler) ListNodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	nodes, err := h.Svc.ListNodes(ctx)
+	if err != nil {
+		h.HandleError(ctx, w, err)
+		return
+	}
+
+	resp := ListNodesResponse{
+		Nodes: make([]NodeInfo, len(nodes)),
+	}
+	for i, node := range nodes {
+		resp.Nodes[i] = NodeInfo{
+			Name:   node.Name,
+			Status: node.Status,
+		}
+	}
+
+	response := NewSuccessResponse[ListNodesResponse](&resp)
+	h.JSONResponse(ctx, w, http.StatusOK, response)
+}

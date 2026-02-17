@@ -79,6 +79,38 @@ func (dm *DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decisio
 	return nil
 }
 
+func (dm *DecisionMakerClient) GetIntentMerkleRoot(ctx context.Context, decisionMaker *domain.DecisionMakerPod) (string, error) {
+	token, err := dm.GetToken(ctx, decisionMaker)
+	if err != nil {
+		return "", err
+	}
+
+	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents/merkle"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := dm.Client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("decision maker %s returned non-OK status: %s", decisionMaker, resp.Status)
+	}
+
+	var merkleResp dmrest.SuccessResponse[dmrest.MerkleRootResponse]
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(&merkleResp); err != nil {
+		return "", err
+	}
+	if merkleResp.Data == nil {
+		return "", fmt.Errorf("decision maker %s returned empty merkle root", decisionMaker)
+	}
+	return merkleResp.Data.RootHash, nil
+}
+
 func (dm *DecisionMakerClient) GetToken(ctx context.Context, decisionMaker *domain.DecisionMakerPod) (string, error) {
 	if token, ok := dm.tokenCache.Get(decisionMaker.NodeID); ok {
 		return token, nil
@@ -182,4 +214,61 @@ func (dm *DecisionMakerClient) DeleteSchedulingIntents(ctx context.Context, deci
 	}
 
 	return nil
+}
+
+func (dm *DecisionMakerClient) GetPodPIDMapping(ctx context.Context, decisionMaker *domain.DecisionMakerPod) (*domain.PodPIDMappingResponse, error) {
+	token, err := dm.GetToken(ctx, decisionMaker)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/pods/pids"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := dm.Client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("decision maker %s returned non-OK status: %s", decisionMaker, resp.Status)
+	}
+
+	var podPIDResp dmrest.SuccessResponse[dmrest.GetPodsPIDsResponse]
+	decoder := json.NewDecoder(resp.Body)
+	if err := decoder.Decode(&podPIDResp); err != nil {
+		return nil, err
+	}
+	if podPIDResp.Data == nil {
+		return nil, fmt.Errorf("decision maker %s returned empty pod-pid mapping", decisionMaker)
+	}
+
+	// Convert dmrest types to domain types
+	result := &domain.PodPIDMappingResponse{
+		Timestamp: podPIDResp.Data.Timestamp,
+		NodeName:  podPIDResp.Data.NodeName,
+		NodeID:    podPIDResp.Data.NodeID,
+		Pods:      make([]domain.PodPIDInfo, 0, len(podPIDResp.Data.Pods)),
+	}
+	for _, pod := range podPIDResp.Data.Pods {
+		podInfo := domain.PodPIDInfo{
+			PodUID:    pod.PodUID,
+			PodID:     pod.PodID,
+			Processes: make([]domain.PodProcess, 0, len(pod.Processes)),
+		}
+		for _, proc := range pod.Processes {
+			podInfo.Processes = append(podInfo.Processes, domain.PodProcess{
+				PID:         proc.PID,
+				Command:     proc.Command,
+				PPID:        proc.PPID,
+				ContainerID: proc.ContainerID,
+			})
+		}
+		result.Pods = append(result.Pods, podInfo)
+	}
+
+	return result, nil
 }

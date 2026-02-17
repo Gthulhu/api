@@ -92,6 +92,8 @@ type Service interface {
 	ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error
 	DeleteScheduleStrategy(ctx context.Context, operator *Claims, strategyID string) error
 	DeleteScheduleIntents(ctx context.Context, operator *Claims, intentIDs []string) error
+	GetPodPIDMapping(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error)
+	ListNodes(ctx context.Context) ([]*Node, error)
 }
 
 type QueryPodsOptions struct {
@@ -109,6 +111,7 @@ type QueryDecisionMakerPodsOptions struct {
 type K8SAdapter interface {
 	QueryPods(ctx context.Context, opt *QueryPodsOptions) ([]*Pod, error)
 	QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) ([]*DecisionMakerPod, error)
+	ListNodes(ctx context.Context) ([]*Node, error)
 }
 
 type DeleteIntentsRequest struct {
@@ -118,5 +121,7 @@ type DeleteIntentsRequest struct {
 
 type DecisionMakerAdapter interface {
 	SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error
+	GetIntentMerkleRoot(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error)
 	DeleteSchedulingIntents(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error
+	GetPodPIDMapping(ctx context.Context, decisionMaker *DecisionMakerPod) (*PodPIDMappingResponse, error)
 }

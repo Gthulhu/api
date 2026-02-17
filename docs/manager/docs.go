@@ -197,6 +197,113 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/nodes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all nodes in the Kubernetes cluster",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List all Kubernetes nodes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListNodesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/nodes/{nodeID}/pods/pids": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all pods running on the specified node with their associated process IDs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "Get Pod-PID mapping for a specific node",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Node ID",
+                        "name": "nodeID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_GetNodePodPIDMappingResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/permissions": {
             "get": {
                 "security": [
@@ -229,6 +336,43 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pods/pids": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all pods running on this node with their associated process IDs",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pods"
+                ],
+                "summary": "Get Pod to PID mappings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_decisionmaker_rest.SuccessResponse-rest_GetPodsPIDsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_decisionmaker_rest.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_decisionmaker_rest.ErrorResponse"
                         }
                     }
                 }
@@ -1026,7 +1170,8 @@ const docTemplate = `{
                 "schedule_strategy.read",
                 "schedule_strategy.delete",
                 "schedule_intent.read",
-                "schedule_intent.delete"
+                "schedule_intent.delete",
+                "pod_pid_mapping.read"
             ],
             "x-enum-varnames": [
                 "CreateUser",
@@ -1042,7 +1187,8 @@ const docTemplate = `{
                 "ScheduleStrategyRead",
                 "ScheduleStrategyDelete",
                 "ScheduleIntentRead",
-                "ScheduleIntentDelete"
+                "ScheduleIntentDelete",
+                "PodPIDMappingRead"
             ]
         },
         "domain.UserStatus": {
@@ -1059,6 +1205,17 @@ const docTemplate = `{
                 "UserStatusWaitChangePassword"
             ]
         },
+        "github_com_Gthulhu_api_decisionmaker_rest.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_Gthulhu_api_decisionmaker_rest.HealthResponse": {
             "type": "object",
             "properties": {
@@ -1067,6 +1224,20 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Gthulhu_api_decisionmaker_rest.SuccessResponse-rest_GetPodsPIDsResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/rest.GetPodsPIDsResponse"
+                },
+                "success": {
+                    "type": "boolean"
                 },
                 "timestamp": {
                     "type": "string"
@@ -1140,11 +1311,39 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_GetNodePodPIDMappingResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/rest.GetNodePodPIDMappingResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_GetSelfUserResponse": {
             "type": "object",
             "properties": {
                 "data": {
                     "$ref": "#/definitions/rest.GetSelfUserResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListNodesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/rest.ListNodesResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -1347,6 +1546,46 @@ const docTemplate = `{
                 }
             }
         },
+        "rest.GetNodePodPIDMappingResponse": {
+            "type": "object",
+            "properties": {
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "pods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rest.PodPIDInfo"
+                    }
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "rest.GetPodsPIDsResponse": {
+            "type": "object",
+            "properties": {
+                "node_id": {
+                    "type": "string"
+                },
+                "node_name": {
+                    "type": "string"
+                },
+                "pods": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rest.PodInfo"
+                    }
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "rest.GetSelfUserResponse": {
             "type": "object",
             "properties": {
@@ -1364,6 +1603,17 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "rest.ListNodesResponse": {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rest.NodeInfo"
+                    }
                 }
             }
         },
@@ -1480,6 +1730,85 @@ const docTemplate = `{
             "properties": {
                 "token": {
                     "type": "string"
+                }
+            }
+        },
+        "rest.NodeInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "rest.PodInfo": {
+            "type": "object",
+            "properties": {
+                "pod_id": {
+                    "type": "string"
+                },
+                "pod_uid": {
+                    "type": "string"
+                },
+                "processes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rest.PodProcess"
+                    }
+                }
+            }
+        },
+        "rest.PodPIDInfo": {
+            "type": "object",
+            "properties": {
+                "pod_id": {
+                    "type": "string"
+                },
+                "pod_uid": {
+                    "type": "string"
+                },
+                "processes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rest.PodPIDProcess"
+                    }
+                }
+            }
+        },
+        "rest.PodPIDProcess": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "container_id": {
+                    "type": "string"
+                },
+                "pid": {
+                    "type": "integer"
+                },
+                "ppid": {
+                    "type": "integer"
+                }
+            }
+        },
+        "rest.PodProcess": {
+            "type": "object",
+            "properties": {
+                "command": {
+                    "type": "string"
+                },
+                "container_id": {
+                    "type": "string"
+                },
+                "pid": {
+                    "type": "integer"
+                },
+                "ppid": {
+                    "type": "integer"
                 }
             }
         },

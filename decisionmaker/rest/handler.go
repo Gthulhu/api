@@ -56,7 +56,7 @@ type SuccessResponse[T any] struct {
 
 type Params struct {
 	fx.In
-	Service     service.Service
+	Service     *service.Service
 	TokenConfig config.TokenConfig
 }
 
@@ -68,7 +68,7 @@ func NewHandler(params Params) (*Handler, error) {
 }
 
 type Handler struct {
-	Service     service.Service
+	Service     *service.Service
 	TokenConfig config.TokenConfig
 }
 
@@ -162,6 +162,7 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) error {
 		apiV1 := api.Group("/v1")
 		// auth routes
 		apiV1.POST("/intents", h.echoHandler(h.HandleIntents), echo.WrapMiddleware(authMiddleware))
+		apiV1.GET("/intents/merkle", h.echoHandler(h.GetIntentMerkleRoot), echo.WrapMiddleware(authMiddleware))
 		apiV1.DELETE("/intents", h.echoHandler(h.DeleteIntent), echo.WrapMiddleware(authMiddleware))
 		apiV1.GET("/scheduling/strategies", h.echoHandler(h.ListIntents), echo.WrapMiddleware(authMiddleware))
 		apiV1.POST("/metrics", h.echoHandler(h.UpdateMetrics), echo.WrapMiddleware(authMiddleware))

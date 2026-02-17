@@ -304,3 +304,51 @@ func (svc *Service) DeleteScheduleIntents(ctx context.Context, operator *domain.
 	logger.Logger(ctx).Info().Msgf("deleted %d intents", len(intentIDs))
 	return nil
 }
+
+func (svc *Service) GetPodPIDMapping(ctx context.Context, nodeID string) (*domain.PodPIDMappingResponse, error) {
+	if svc.K8SAdapter == nil {
+		return nil, domain.ErrNoClient
+	}
+
+	dmLabel := domain.LabelSelector{
+		Key:   "app",
+		Value: "decisionmaker",
+	}
+	dmQueryOpt := &domain.QueryDecisionMakerPodsOptions{
+		DecisionMakerLabel: dmLabel,
+		NodeIDs:            []string{nodeID},
+	}
+	dms, err := svc.K8SAdapter.QueryDecisionMakerPods(ctx, dmQueryOpt)
+	if err != nil {
+		return nil, fmt.Errorf("query decision maker pods: %w", err)
+	}
+	if len(dms) == 0 {
+		return nil, fmt.Errorf("no decision maker pod found on node %s", nodeID)
+	}
+
+	dm := dms[0]
+	if dm.State != domain.NodeStateOnline {
+		return nil, fmt.Errorf("decision maker on node %s is not online (state: %d)", nodeID, dm.State)
+	}
+
+	result, err := svc.DMAdapter.GetPodPIDMapping(ctx, dm)
+	if err != nil {
+		return nil, fmt.Errorf("get pod-pid mapping from decision maker: %w", err)
+	}
+
+	// Set NodeID in response if not already set
+	if result.NodeID == "" {
+		result.NodeID = nodeID
+	}
+
+	return result, nil
+}
+
+// ListNodes returns all nodes in the Kubernetes cluster
+func (svc *Service) ListNodes(ctx context.Context) ([]*domain.Node, error) {
+	if svc.K8SAdapter == nil {
+		return nil, domain.ErrNoClient
+	}
+
+	return svc.K8SAdapter.ListNodes(ctx)
+}

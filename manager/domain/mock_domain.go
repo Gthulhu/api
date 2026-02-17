@@ -329,6 +329,177 @@ func (_c *MockRepository_CreateUser_Call) RunAndReturn(run func(ctx context.Cont
 	return _c
 }
 
+// DeleteIntents provides a mock function for the type MockRepository
+func (_mock *MockRepository) DeleteIntents(ctx context.Context, intentIDs []bson.ObjectID) error {
+	ret := _mock.Called(ctx, intentIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteIntents")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []bson.ObjectID) error); ok {
+		r0 = returnFunc(ctx, intentIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_DeleteIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteIntents'
+type MockRepository_DeleteIntents_Call struct {
+	*mock.Call
+}
+
+// DeleteIntents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - intentIDs []bson.ObjectID
+func (_e *MockRepository_Expecter) DeleteIntents(ctx interface{}, intentIDs interface{}) *MockRepository_DeleteIntents_Call {
+	return &MockRepository_DeleteIntents_Call{Call: _e.mock.On("DeleteIntents", ctx, intentIDs)}
+}
+
+func (_c *MockRepository_DeleteIntents_Call) Run(run func(ctx context.Context, intentIDs []bson.ObjectID)) *MockRepository_DeleteIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []bson.ObjectID
+		if args[1] != nil {
+			arg1 = args[1].([]bson.ObjectID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_DeleteIntents_Call) Return(err error) *MockRepository_DeleteIntents_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_DeleteIntents_Call) RunAndReturn(run func(ctx context.Context, intentIDs []bson.ObjectID) error) *MockRepository_DeleteIntents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteIntentsByStrategyID provides a mock function for the type MockRepository
+func (_mock *MockRepository) DeleteIntentsByStrategyID(ctx context.Context, strategyID bson.ObjectID) error {
+	ret := _mock.Called(ctx, strategyID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteIntentsByStrategyID")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, bson.ObjectID) error); ok {
+		r0 = returnFunc(ctx, strategyID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_DeleteIntentsByStrategyID_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteIntentsByStrategyID'
+type MockRepository_DeleteIntentsByStrategyID_Call struct {
+	*mock.Call
+}
+
+// DeleteIntentsByStrategyID is a helper method to define mock.On call
+//   - ctx context.Context
+//   - strategyID bson.ObjectID
+func (_e *MockRepository_Expecter) DeleteIntentsByStrategyID(ctx interface{}, strategyID interface{}) *MockRepository_DeleteIntentsByStrategyID_Call {
+	return &MockRepository_DeleteIntentsByStrategyID_Call{Call: _e.mock.On("DeleteIntentsByStrategyID", ctx, strategyID)}
+}
+
+func (_c *MockRepository_DeleteIntentsByStrategyID_Call) Run(run func(ctx context.Context, strategyID bson.ObjectID)) *MockRepository_DeleteIntentsByStrategyID_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 bson.ObjectID
+		if args[1] != nil {
+			arg1 = args[1].(bson.ObjectID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_DeleteIntentsByStrategyID_Call) Return(err error) *MockRepository_DeleteIntentsByStrategyID_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_DeleteIntentsByStrategyID_Call) RunAndReturn(run func(ctx context.Context, strategyID bson.ObjectID) error) *MockRepository_DeleteIntentsByStrategyID_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteStrategy provides a mock function for the type MockRepository
+func (_mock *MockRepository) DeleteStrategy(ctx context.Context, strategyID bson.ObjectID) error {
+	ret := _mock.Called(ctx, strategyID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteStrategy")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, bson.ObjectID) error); ok {
+		r0 = returnFunc(ctx, strategyID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_DeleteStrategy_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteStrategy'
+type MockRepository_DeleteStrategy_Call struct {
+	*mock.Call
+}
+
+// DeleteStrategy is a helper method to define mock.On call
+//   - ctx context.Context
+//   - strategyID bson.ObjectID
+func (_e *MockRepository_Expecter) DeleteStrategy(ctx interface{}, strategyID interface{}) *MockRepository_DeleteStrategy_Call {
+	return &MockRepository_DeleteStrategy_Call{Call: _e.mock.On("DeleteStrategy", ctx, strategyID)}
+}
+
+func (_c *MockRepository_DeleteStrategy_Call) Run(run func(ctx context.Context, strategyID bson.ObjectID)) *MockRepository_DeleteStrategy_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 bson.ObjectID
+		if args[1] != nil {
+			arg1 = args[1].(bson.ObjectID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_DeleteStrategy_Call) Return(err error) *MockRepository_DeleteStrategy_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_DeleteStrategy_Call) RunAndReturn(run func(ctx context.Context, strategyID bson.ObjectID) error) *MockRepository_DeleteStrategy_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // InsertStrategyAndIntents provides a mock function for the type MockRepository
 func (_mock *MockRepository) InsertStrategyAndIntents(ctx context.Context, strategy *ScheduleStrategy, intents []*ScheduleIntent) error {
 	ret := _mock.Called(ctx, strategy, intents)
@@ -1322,6 +1493,262 @@ func (_c *MockService_DeleteRole_Call) RunAndReturn(run func(ctx context.Context
 	return _c
 }
 
+// DeleteScheduleIntents provides a mock function for the type MockService
+func (_mock *MockService) DeleteScheduleIntents(ctx context.Context, operator *Claims, intentIDs []string) error {
+	ret := _mock.Called(ctx, operator, intentIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteScheduleIntents")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *Claims, []string) error); ok {
+		r0 = returnFunc(ctx, operator, intentIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_DeleteScheduleIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteScheduleIntents'
+type MockService_DeleteScheduleIntents_Call struct {
+	*mock.Call
+}
+
+// DeleteScheduleIntents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - operator *Claims
+//   - intentIDs []string
+func (_e *MockService_Expecter) DeleteScheduleIntents(ctx interface{}, operator interface{}, intentIDs interface{}) *MockService_DeleteScheduleIntents_Call {
+	return &MockService_DeleteScheduleIntents_Call{Call: _e.mock.On("DeleteScheduleIntents", ctx, operator, intentIDs)}
+}
+
+func (_c *MockService_DeleteScheduleIntents_Call) Run(run func(ctx context.Context, operator *Claims, intentIDs []string)) *MockService_DeleteScheduleIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *Claims
+		if args[1] != nil {
+			arg1 = args[1].(*Claims)
+		}
+		var arg2 []string
+		if args[2] != nil {
+			arg2 = args[2].([]string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_DeleteScheduleIntents_Call) Return(err error) *MockService_DeleteScheduleIntents_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_DeleteScheduleIntents_Call) RunAndReturn(run func(ctx context.Context, operator *Claims, intentIDs []string) error) *MockService_DeleteScheduleIntents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteScheduleStrategy provides a mock function for the type MockService
+func (_mock *MockService) DeleteScheduleStrategy(ctx context.Context, operator *Claims, strategyID string) error {
+	ret := _mock.Called(ctx, operator, strategyID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteScheduleStrategy")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *Claims, string) error); ok {
+		r0 = returnFunc(ctx, operator, strategyID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_DeleteScheduleStrategy_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteScheduleStrategy'
+type MockService_DeleteScheduleStrategy_Call struct {
+	*mock.Call
+}
+
+// DeleteScheduleStrategy is a helper method to define mock.On call
+//   - ctx context.Context
+//   - operator *Claims
+//   - strategyID string
+func (_e *MockService_Expecter) DeleteScheduleStrategy(ctx interface{}, operator interface{}, strategyID interface{}) *MockService_DeleteScheduleStrategy_Call {
+	return &MockService_DeleteScheduleStrategy_Call{Call: _e.mock.On("DeleteScheduleStrategy", ctx, operator, strategyID)}
+}
+
+func (_c *MockService_DeleteScheduleStrategy_Call) Run(run func(ctx context.Context, operator *Claims, strategyID string)) *MockService_DeleteScheduleStrategy_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *Claims
+		if args[1] != nil {
+			arg1 = args[1].(*Claims)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_DeleteScheduleStrategy_Call) Return(err error) *MockService_DeleteScheduleStrategy_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_DeleteScheduleStrategy_Call) RunAndReturn(run func(ctx context.Context, operator *Claims, strategyID string) error) *MockService_DeleteScheduleStrategy_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetPodPIDMapping provides a mock function for the type MockService
+func (_mock *MockService) GetPodPIDMapping(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error) {
+	ret := _mock.Called(ctx, nodeID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPodPIDMapping")
+	}
+
+	var r0 *PodPIDMappingResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*PodPIDMappingResponse, error)); ok {
+		return returnFunc(ctx, nodeID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *PodPIDMappingResponse); ok {
+		r0 = returnFunc(ctx, nodeID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*PodPIDMappingResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, nodeID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_GetPodPIDMapping_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPodPIDMapping'
+type MockService_GetPodPIDMapping_Call struct {
+	*mock.Call
+}
+
+// GetPodPIDMapping is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeID string
+func (_e *MockService_Expecter) GetPodPIDMapping(ctx interface{}, nodeID interface{}) *MockService_GetPodPIDMapping_Call {
+	return &MockService_GetPodPIDMapping_Call{Call: _e.mock.On("GetPodPIDMapping", ctx, nodeID)}
+}
+
+func (_c *MockService_GetPodPIDMapping_Call) Run(run func(ctx context.Context, nodeID string)) *MockService_GetPodPIDMapping_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_GetPodPIDMapping_Call) Return(podPIDMappingResponse *PodPIDMappingResponse, err error) *MockService_GetPodPIDMapping_Call {
+	_c.Call.Return(podPIDMappingResponse, err)
+	return _c
+}
+
+func (_c *MockService_GetPodPIDMapping_Call) RunAndReturn(run func(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error)) *MockService_GetPodPIDMapping_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListNodes provides a mock function for the type MockService
+func (_mock *MockService) ListNodes(ctx context.Context) ([]*Node, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListNodes")
+	}
+
+	var r0 []*Node
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*Node, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*Node); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Node)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_ListNodes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListNodes'
+type MockService_ListNodes_Call struct {
+	*mock.Call
+}
+
+// ListNodes is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockService_Expecter) ListNodes(ctx interface{}) *MockService_ListNodes_Call {
+	return &MockService_ListNodes_Call{Call: _e.mock.On("ListNodes", ctx)}
+}
+
+func (_c *MockService_ListNodes_Call) Run(run func(ctx context.Context)) *MockService_ListNodes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ListNodes_Call) Return(nodes []*Node, err error) *MockService_ListNodes_Call {
+	_c.Call.Return(nodes, err)
+	return _c
+}
+
+func (_c *MockService_ListNodes_Call) RunAndReturn(run func(ctx context.Context) ([]*Node, error)) *MockService_ListNodes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListScheduleIntents provides a mock function for the type MockService
 func (_mock *MockService) ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error {
 	ret := _mock.Called(ctx, filterOpts)
@@ -1991,6 +2418,68 @@ func (_m *MockK8SAdapter) EXPECT() *MockK8SAdapter_Expecter {
 	return &MockK8SAdapter_Expecter{mock: &_m.Mock}
 }
 
+// ListNodes provides a mock function for the type MockK8SAdapter
+func (_mock *MockK8SAdapter) ListNodes(ctx context.Context) ([]*Node, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListNodes")
+	}
+
+	var r0 []*Node
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*Node, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*Node); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Node)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockK8SAdapter_ListNodes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListNodes'
+type MockK8SAdapter_ListNodes_Call struct {
+	*mock.Call
+}
+
+// ListNodes is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockK8SAdapter_Expecter) ListNodes(ctx interface{}) *MockK8SAdapter_ListNodes_Call {
+	return &MockK8SAdapter_ListNodes_Call{Call: _e.mock.On("ListNodes", ctx)}
+}
+
+func (_c *MockK8SAdapter_ListNodes_Call) Run(run func(ctx context.Context)) *MockK8SAdapter_ListNodes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockK8SAdapter_ListNodes_Call) Return(nodes []*Node, err error) *MockK8SAdapter_ListNodes_Call {
+	_c.Call.Return(nodes, err)
+	return _c
+}
+
+func (_c *MockK8SAdapter_ListNodes_Call) RunAndReturn(run func(ctx context.Context) ([]*Node, error)) *MockK8SAdapter_ListNodes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // QueryDecisionMakerPods provides a mock function for the type MockK8SAdapter
 func (_mock *MockK8SAdapter) QueryDecisionMakerPods(ctx context.Context, opt *QueryDecisionMakerPodsOptions) ([]*DecisionMakerPod, error) {
 	ret := _mock.Called(ctx, opt)
@@ -2154,69 +2643,6 @@ func (_m *MockDecisionMakerAdapter) EXPECT() *MockDecisionMakerAdapter_Expecter 
 	return &MockDecisionMakerAdapter_Expecter{mock: &_m.Mock}
 }
 
-// SendSchedulingIntent provides a mock function for the type MockDecisionMakerAdapter
-func (_mock *MockDecisionMakerAdapter) SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error {
-	ret := _mock.Called(ctx, decisionMaker, intents)
-
-	if len(ret) == 0 {
-		panic("no return value specified for SendSchedulingIntent")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod, []*ScheduleIntent) error); ok {
-		r0 = returnFunc(ctx, decisionMaker, intents)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockDecisionMakerAdapter_SendSchedulingIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendSchedulingIntent'
-type MockDecisionMakerAdapter_SendSchedulingIntent_Call struct {
-	*mock.Call
-}
-
-// SendSchedulingIntent is a helper method to define mock.On call
-//   - ctx context.Context
-//   - decisionMaker *DecisionMakerPod
-//   - intents []*ScheduleIntent
-func (_e *MockDecisionMakerAdapter_Expecter) SendSchedulingIntent(ctx interface{}, decisionMaker interface{}, intents interface{}) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
-	return &MockDecisionMakerAdapter_SendSchedulingIntent_Call{Call: _e.mock.On("SendSchedulingIntent", ctx, decisionMaker, intents)}
-}
-
-func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent)) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 *DecisionMakerPod
-		if args[1] != nil {
-			arg1 = args[1].(*DecisionMakerPod)
-		}
-		var arg2 []*ScheduleIntent
-		if args[2] != nil {
-			arg2 = args[2].([]*ScheduleIntent)
-		}
-		run(
-			arg0,
-			arg1,
-			arg2,
-		)
-	})
-	return _c
-}
-
-func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) Return(err error) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // DeleteSchedulingIntents provides a mock function for the type MockDecisionMakerAdapter
 func (_mock *MockDecisionMakerAdapter) DeleteSchedulingIntents(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error {
 	ret := _mock.Called(ctx, decisionMaker, req)
@@ -2276,6 +2702,203 @@ func (_c *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call) Return(err erro
 }
 
 func (_c *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error) *MockDecisionMakerAdapter_DeleteSchedulingIntents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetIntentMerkleRoot provides a mock function for the type MockDecisionMakerAdapter
+func (_mock *MockDecisionMakerAdapter) GetIntentMerkleRoot(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error) {
+	ret := _mock.Called(ctx, decisionMaker)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetIntentMerkleRoot")
+	}
+
+	var r0 string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) (string, error)); ok {
+		return returnFunc(ctx, decisionMaker)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) string); ok {
+		r0 = returnFunc(ctx, decisionMaker)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *DecisionMakerPod) error); ok {
+		r1 = returnFunc(ctx, decisionMaker)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDecisionMakerAdapter_GetIntentMerkleRoot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetIntentMerkleRoot'
+type MockDecisionMakerAdapter_GetIntentMerkleRoot_Call struct {
+	*mock.Call
+}
+
+// GetIntentMerkleRoot is a helper method to define mock.On call
+//   - ctx context.Context
+//   - decisionMaker *DecisionMakerPod
+func (_e *MockDecisionMakerAdapter_Expecter) GetIntentMerkleRoot(ctx interface{}, decisionMaker interface{}) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	return &MockDecisionMakerAdapter_GetIntentMerkleRoot_Call{Call: _e.mock.On("GetIntentMerkleRoot", ctx, decisionMaker)}
+}
+
+func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod)) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *DecisionMakerPod
+		if args[1] != nil {
+			arg1 = args[1].(*DecisionMakerPod)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) Return(s string, err error) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Return(s, err)
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error)) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetPodPIDMapping provides a mock function for the type MockDecisionMakerAdapter
+func (_mock *MockDecisionMakerAdapter) GetPodPIDMapping(ctx context.Context, decisionMaker *DecisionMakerPod) (*PodPIDMappingResponse, error) {
+	ret := _mock.Called(ctx, decisionMaker)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPodPIDMapping")
+	}
+
+	var r0 *PodPIDMappingResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) (*PodPIDMappingResponse, error)); ok {
+		return returnFunc(ctx, decisionMaker)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) *PodPIDMappingResponse); ok {
+		r0 = returnFunc(ctx, decisionMaker)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*PodPIDMappingResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *DecisionMakerPod) error); ok {
+		r1 = returnFunc(ctx, decisionMaker)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDecisionMakerAdapter_GetPodPIDMapping_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPodPIDMapping'
+type MockDecisionMakerAdapter_GetPodPIDMapping_Call struct {
+	*mock.Call
+}
+
+// GetPodPIDMapping is a helper method to define mock.On call
+//   - ctx context.Context
+//   - decisionMaker *DecisionMakerPod
+func (_e *MockDecisionMakerAdapter_Expecter) GetPodPIDMapping(ctx interface{}, decisionMaker interface{}) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	return &MockDecisionMakerAdapter_GetPodPIDMapping_Call{Call: _e.mock.On("GetPodPIDMapping", ctx, decisionMaker)}
+}
+
+func (_c *MockDecisionMakerAdapter_GetPodPIDMapping_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod)) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *DecisionMakerPod
+		if args[1] != nil {
+			arg1 = args[1].(*DecisionMakerPod)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetPodPIDMapping_Call) Return(podPIDMappingResponse *PodPIDMappingResponse, err error) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	_c.Call.Return(podPIDMappingResponse, err)
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetPodPIDMapping_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod) (*PodPIDMappingResponse, error)) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SendSchedulingIntent provides a mock function for the type MockDecisionMakerAdapter
+func (_mock *MockDecisionMakerAdapter) SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error {
+	ret := _mock.Called(ctx, decisionMaker, intents)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SendSchedulingIntent")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod, []*ScheduleIntent) error); ok {
+		r0 = returnFunc(ctx, decisionMaker, intents)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockDecisionMakerAdapter_SendSchedulingIntent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SendSchedulingIntent'
+type MockDecisionMakerAdapter_SendSchedulingIntent_Call struct {
+	*mock.Call
+}
+
+// SendSchedulingIntent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - decisionMaker *DecisionMakerPod
+//   - intents []*ScheduleIntent
+func (_e *MockDecisionMakerAdapter_Expecter) SendSchedulingIntent(ctx interface{}, decisionMaker interface{}, intents interface{}) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
+	return &MockDecisionMakerAdapter_SendSchedulingIntent_Call{Call: _e.mock.On("SendSchedulingIntent", ctx, decisionMaker, intents)}
+}
+
+func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent)) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *DecisionMakerPod
+		if args[1] != nil {
+			arg1 = args[1].(*DecisionMakerPod)
+		}
+		var arg2 []*ScheduleIntent
+		if args[2] != nil {
+			arg2 = args[2].([]*ScheduleIntent)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) Return(err error) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_SendSchedulingIntent_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error) *MockDecisionMakerAdapter_SendSchedulingIntent_Call {
 	_c.Call.Return(run)
 	return _c
 }
