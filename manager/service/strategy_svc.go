@@ -343,3 +343,12 @@ func (svc *Service) GetPodPIDMapping(ctx context.Context, nodeID string) (*domai
 
 	return result, nil
 }
+
+// ListNodes returns all nodes in the Kubernetes cluster
+func (svc *Service) ListNodes(ctx context.Context) ([]*domain.Node, error) {
+	if svc.K8SAdapter == nil {
+		return nil, domain.ErrNoClient
+	}
+
+	return svc.K8SAdapter.ListNodes(ctx)
+}

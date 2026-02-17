@@ -1,5 +1,12 @@
 package domain
 
+// Node represents a Kubernetes node
+type Node struct {
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels,omitempty"`
+	Status string            `json:"status"`
+}
+
 type DecisionMakerPod struct {
 	NodeID string
 	Port   int

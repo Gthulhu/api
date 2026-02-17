@@ -46,6 +46,7 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) {
 		apiV1.DELETE("/intents", h.echoHandler(h.DeleteScheduleIntents), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleIntentDelete)))
 
 		// pod-pid mapping routes
+		apiV1.GET("/nodes", h.echoHandler(h.ListNodes), echo.WrapMiddleware(h.GetAuthMiddleware(domain.PodPIDMappingRead)))
 		apiV1.GET("/nodes/:nodeID/pods/pids", h.echoHandlerWithParams(h.GetNodePodPIDMapping), echo.WrapMiddleware(h.GetAuthMiddleware(domain.PodPIDMappingRead)))
 	}
 

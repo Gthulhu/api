@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Container, RefreshCw, Maximize2, Minimize2, Server } from 'lucide-react';
+import { Container, RefreshCw, Maximize2, Minimize2, Server, ChevronDown } from 'lucide-react';
 
 function truncateText(text, maxLen) {
   if (!text) return '--';
@@ -20,23 +20,54 @@ function formatTimestamp(isoString) {
 export default function PodsCard() {
   const { isAuthenticated, makeAuthenticatedRequest, showToast } = useApp();
   const [pods, setPods] = useState([]);
+  const [nodes, setNodes] = useState([]);
   const [nodeName, setNodeName] = useState('--');
   const [nodeID, setNodeID] = useState('');
-  const [nodeIDInput, setNodeIDInput] = useState('');
   const [totalProcesses, setTotalProcesses] = useState(0);
   const [lastUpdated, setLastUpdated] = useState('--');
-  const [rawResult, setRawResult] = useState('Enter a Node ID and click refresh to view pod-PID mappings...');
+  const [rawResult, setRawResult] = useState('Select a node to view pod-PID mappings...');
   const [resultClass, setResultClass] = useState('');
   const [expandedPods, setExpandedPods] = useState(new Set());
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingNodes, setLoadingNodes] = useState(false);
   const intervalRef = useRef(null);
+
+  // Fetch available nodes
+  const fetchNodes = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setLoadingNodes(true);
+    try {
+      const response = await makeAuthenticatedRequest('/api/v1/nodes');
+      const data = await response.json();
+      
+      if (data.success && data.data && data.data.nodes) {
+        setNodes(data.data.nodes);
+        showToast('success', `Found ${data.data.nodes.length} node(s)`);
+      } else {
+        setNodes([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch nodes:', error);
+      setNodes([]);
+    } finally {
+      setLoadingNodes(false);
+    }
+  }, [isAuthenticated, makeAuthenticatedRequest, showToast]);
+
+  // Fetch nodes when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchNodes();
+    }
+  }, [isAuthenticated, fetchNodes]);
 
   const getPodPids = useCallback(async (targetNodeID) => {
     const nodeToQuery = targetNodeID || nodeID;
     if (!isAuthenticated) return;
     if (!nodeToQuery) {
-      showToast('warning', 'Please enter a Node ID');
+      showToast('warning', 'Please select a node');
       return;
     }
     
@@ -77,20 +108,21 @@ export default function PodsCard() {
     }
   }, [isAuthenticated, makeAuthenticatedRequest, showToast, nodeID]);
 
-  const handleLoadPodPids = useCallback(() => {
-    if (nodeIDInput.trim()) {
-      setNodeID(nodeIDInput.trim());
-      getPodPids(nodeIDInput.trim());
+  const handleNodeChange = useCallback((e) => {
+    const selectedNodeID = e.target.value;
+    setNodeID(selectedNodeID);
+    if (selectedNodeID) {
+      getPodPids(selectedNodeID);
     } else {
-      showToast('warning', 'Please enter a Node ID');
+      // Clear data when no node selected
+      setPods([]);
+      setNodeName('--');
+      setTotalProcesses(0);
+      setLastUpdated('--');
+      setRawResult('Select a node to view pod-PID mappings...');
+      setResultClass('');
     }
-  }, [nodeIDInput, getPodPids, showToast]);
-
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      handleLoadPodPids();
-    }
-  };
+  }, [getPodPids]);
 
   useEffect(() => {
     const handleRefresh = () => getPodPids();
@@ -174,33 +206,46 @@ export default function PodsCard() {
         </div>
       </div>
       <div className="card-body">
-        {/* Node ID Input Section */}
+        {/* Node Selector Section */}
         <div className="node-selector">
           <div className="node-input-group">
             <Server size={16} className="node-input-icon" />
-            <input
-              type="text"
-              className="node-input"
-              placeholder="Enter Node ID (e.g., node-1, minikube)"
-              value={nodeIDInput}
-              onChange={(e) => setNodeIDInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              disabled={!isAuthenticated || loading}
-            />
+            <div className="node-select-wrapper">
+              <select
+                className="node-select"
+                value={nodeID}
+                onChange={handleNodeChange}
+                disabled={!isAuthenticated || loading || loadingNodes}
+              >
+                <option value="">
+                  {loadingNodes ? 'Loading nodes...' : '-- Select a Node --'}
+                </option>
+                {nodes.map((node) => (
+                  <option key={node.name} value={node.name}>
+                    {node.name} ({node.status})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={16} className="select-chevron" />
+            </div>
+            <button 
+              className="btn btn-secondary btn-sm"
+              onClick={fetchNodes}
+              disabled={!isAuthenticated || loadingNodes}
+              title="Refresh node list"
+            >
+              {loadingNodes ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+            </button>
             <button 
               className="btn btn-primary btn-sm"
-              onClick={handleLoadPodPids}
-              disabled={!isAuthenticated || loading || !nodeIDInput.trim()}
+              onClick={() => getPodPids()}
+              disabled={!isAuthenticated || loading || !nodeID}
+              title="Refresh Pod-PID mappings"
             >
               {loading ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
               <span>Load</span>
             </button>
           </div>
-          {nodeID && (
-            <div className="current-node-badge">
-              Current: <strong>{nodeID}</strong>
-            </div>
-          )}
         </div>
 
         <div className="pods-summary" id="podsSummary">
@@ -227,7 +272,7 @@ export default function PodsCard() {
               {!isAuthenticated 
                 ? 'Authenticate to view pod-PID mappings...' 
                 : !nodeID 
-                  ? 'Enter a Node ID above and click Load to view pod-PID mappings'
+                  ? 'Select a node above to view pod-PID mappings'
                   : 'No pods found on this node'}
             </div>
           ) : (

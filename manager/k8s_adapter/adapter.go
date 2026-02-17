@@ -373,3 +373,38 @@ func mapPodState(phase apiv1.PodPhase) domain.NodeState {
 		return domain.NodeStateOffline
 	}
 }
+
+// ListNodes returns all nodes in the Kubernetes cluster
+func (a *Adapter) ListNodes(ctx context.Context) ([]*domain.Node, error) {
+	if a == nil || a.client == nil {
+		return nil, domain.ErrNoClient
+	}
+
+	nodeList, err := a.client.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("list nodes: %w", err)
+	}
+
+	results := make([]*domain.Node, 0, len(nodeList.Items))
+	for _, node := range nodeList.Items {
+		status := "Unknown"
+		for _, condition := range node.Status.Conditions {
+			if condition.Type == apiv1.NodeReady {
+				if condition.Status == apiv1.ConditionTrue {
+					status = "Ready"
+				} else {
+					status = "NotReady"
+				}
+				break
+			}
+		}
+
+		results = append(results, &domain.Node{
+			Name:   node.Name,
+			Labels: copyLabels(node.Labels),
+			Status: status,
+		})
+	}
+
+	return results, nil
+}

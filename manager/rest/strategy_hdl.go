@@ -412,3 +412,48 @@ func (h *Handler) GetNodePodPIDMapping(w http.ResponseWriter, r *http.Request) {
 	response := NewSuccessResponse[GetNodePodPIDMappingResponse](&resp)
 	h.JSONResponse(ctx, w, http.StatusOK, response)
 }
+
+// NodeInfo represents node information for API response
+type NodeInfo struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+}
+
+// ListNodesResponse is the response structure for the GET /api/v1/nodes endpoint
+type ListNodesResponse struct {
+	Nodes []NodeInfo `json:"nodes"`
+}
+
+// ListNodes godoc
+// @Summary List all Kubernetes nodes
+// @Description Returns all nodes in the Kubernetes cluster
+// @Tags Nodes
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} SuccessResponse[ListNodesResponse]
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/nodes [get]
+func (h *Handler) ListNodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	nodes, err := h.Svc.ListNodes(ctx)
+	if err != nil {
+		h.HandleError(ctx, w, err)
+		return
+	}
+
+	resp := ListNodesResponse{
+		Nodes: make([]NodeInfo, len(nodes)),
+	}
+	for i, node := range nodes {
+		resp.Nodes[i] = NodeInfo{
+			Name:   node.Name,
+			Status: node.Status,
+		}
+	}
+
+	response := NewSuccessResponse[ListNodesResponse](&resp)
+	h.JSONResponse(ctx, w, http.StatusOK, response)
+}
