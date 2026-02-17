@@ -92,6 +92,7 @@ type Service interface {
 	ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error
 	DeleteScheduleStrategy(ctx context.Context, operator *Claims, strategyID string) error
 	DeleteScheduleIntents(ctx context.Context, operator *Claims, intentIDs []string) error
+	GetPodPIDMapping(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error)
 }
 
 type QueryPodsOptions struct {
@@ -120,4 +121,5 @@ type DecisionMakerAdapter interface {
 	SendSchedulingIntent(ctx context.Context, decisionMaker *DecisionMakerPod, intents []*ScheduleIntent) error
 	GetIntentMerkleRoot(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error)
 	DeleteSchedulingIntents(ctx context.Context, decisionMaker *DecisionMakerPod, req *DeleteIntentsRequest) error
+	GetPodPIDMapping(ctx context.Context, decisionMaker *DecisionMakerPod) (*PodPIDMappingResponse, error)
 }

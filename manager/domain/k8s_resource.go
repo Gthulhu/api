@@ -36,3 +36,26 @@ type Container struct {
 	Name        string
 	Command     []string
 }
+
+// PodProcess represents a process information within a pod
+type PodProcess struct {
+	PID         int    `json:"pid"`
+	Command     string `json:"command"`
+	PPID        int    `json:"ppid,omitempty"`
+	ContainerID string `json:"container_id,omitempty"`
+}
+
+// PodPIDInfo represents pod information with associated processes
+type PodPIDInfo struct {
+	PodUID    string       `json:"pod_uid"`
+	PodID     string       `json:"pod_id,omitempty"`
+	Processes []PodProcess `json:"processes"`
+}
+
+// PodPIDMappingResponse represents the response from Decision Maker's Pod-PID mapping API
+type PodPIDMappingResponse struct {
+	Pods      []PodPIDInfo `json:"pods"`
+	Timestamp string       `json:"timestamp"`
+	NodeName  string       `json:"node_name"`
+	NodeID    string       `json:"node_id,omitempty"`
+}

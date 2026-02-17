@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"context"
 	"net/http"
 
 	docs "github.com/Gthulhu/api/docs/manager"
@@ -43,10 +44,37 @@ func (h *Handler) SetupRoutes(engine *echo.Echo) {
 		apiV1.DELETE("/strategies", h.echoHandler(h.DeleteScheduleStrategy), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleStrategyDelete)))
 		apiV1.GET("/intents/self", h.echoHandler(h.ListSelfScheduleIntents), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleIntentRead)))
 		apiV1.DELETE("/intents", h.echoHandler(h.DeleteScheduleIntents), echo.WrapMiddleware(h.GetAuthMiddleware(domain.ScheduleIntentDelete)))
+
+		// pod-pid mapping routes
+		apiV1.GET("/nodes/:nodeID/pods/pids", h.echoHandlerWithParams(h.GetNodePodPIDMapping), echo.WrapMiddleware(h.GetAuthMiddleware(domain.PodPIDMappingRead)))
 	}
 
 }
 
 func (h *Handler) echoHandler(handlerFunc func(w http.ResponseWriter, r *http.Request)) echo.HandlerFunc {
 	return echo.WrapHandler(http.HandlerFunc(handlerFunc))
+}
+
+// echoHandlerWithParams wraps a handler function and injects path parameters into request context
+func (h *Handler) echoHandlerWithParams(handlerFunc func(w http.ResponseWriter, r *http.Request)) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		r := c.Request()
+		// Store path params in request context
+		for _, name := range c.ParamNames() {
+			r = r.WithContext(context.WithValue(r.Context(), pathParamKey(name), c.Param(name)))
+		}
+		handlerFunc(c.Response().Writer, r)
+		return nil
+	}
+}
+
+// pathParamKey is a type for path parameter context keys
+type pathParamKey string
+
+// GetPathParam retrieves a path parameter from request context
+func (h *Handler) GetPathParam(r *http.Request, name string) string {
+	if val, ok := r.Context().Value(pathParamKey(name)).(string); ok {
+		return val
+	}
+	return ""
 }

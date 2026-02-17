@@ -1,13 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Container, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+import { Container, RefreshCw, Maximize2, Minimize2, Server } from 'lucide-react';
 
 function truncateText(text, maxLen) {
   if (!text) return '--';
@@ -28,21 +21,28 @@ export default function PodsCard() {
   const { isAuthenticated, makeAuthenticatedRequest, showToast } = useApp();
   const [pods, setPods] = useState([]);
   const [nodeName, setNodeName] = useState('--');
+  const [nodeID, setNodeID] = useState('');
+  const [nodeIDInput, setNodeIDInput] = useState('');
   const [totalProcesses, setTotalProcesses] = useState(0);
   const [lastUpdated, setLastUpdated] = useState('--');
-  const [rawResult, setRawResult] = useState('Authenticate to view pod-PID mappings...');
+  const [rawResult, setRawResult] = useState('Enter a Node ID and click refresh to view pod-PID mappings...');
   const [resultClass, setResultClass] = useState('');
   const [expandedPods, setExpandedPods] = useState(new Set());
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [loading, setLoading] = useState(false);
   const intervalRef = useRef(null);
 
-  const getPodPids = useCallback(async () => {
+  const getPodPids = useCallback(async (targetNodeID) => {
+    const nodeToQuery = targetNodeID || nodeID;
     if (!isAuthenticated) return;
+    if (!nodeToQuery) {
+      showToast('warning', 'Please enter a Node ID');
+      return;
+    }
     
     setLoading(true);
     try {
-      const response = await makeAuthenticatedRequest('/api/v1/pods/pids');
+      const response = await makeAuthenticatedRequest(`/api/v1/nodes/${encodeURIComponent(nodeToQuery)}/pods/pids`);
       const data = await response.json();
       
       if (data.success && data.data) {
@@ -75,7 +75,22 @@ export default function PodsCard() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, makeAuthenticatedRequest, showToast]);
+  }, [isAuthenticated, makeAuthenticatedRequest, showToast, nodeID]);
+
+  const handleLoadPodPids = useCallback(() => {
+    if (nodeIDInput.trim()) {
+      setNodeID(nodeIDInput.trim());
+      getPodPids(nodeIDInput.trim());
+    } else {
+      showToast('warning', 'Please enter a Node ID');
+    }
+  }, [nodeIDInput, getPodPids, showToast]);
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleLoadPodPids();
+    }
+  };
 
   useEffect(() => {
     const handleRefresh = () => getPodPids();
@@ -84,8 +99,8 @@ export default function PodsCard() {
   }, [getPodPids]);
 
   useEffect(() => {
-    if (autoRefresh && isAuthenticated) {
-      intervalRef.current = setInterval(getPodPids, 5000);
+    if (autoRefresh && isAuthenticated && nodeID) {
+      intervalRef.current = setInterval(() => getPodPids(), 5000);
       getPodPids();
       showToast('info', 'Pod-PID auto-refresh enabled (5s interval)');
     } else {
@@ -100,7 +115,7 @@ export default function PodsCard() {
         clearInterval(intervalRef.current);
       }
     };
-  }, [autoRefresh, isAuthenticated, getPodPids, showToast]);
+  }, [autoRefresh, isAuthenticated, nodeID, getPodPids, showToast]);
 
   const togglePod = (podUid) => {
     setExpandedPods(prev => {
@@ -140,14 +155,6 @@ export default function PodsCard() {
           <h2>Pod-PID Mapping</h2>
         </div>
         <div className="card-actions">
-          <button 
-            className="icon-btn auth-required" 
-            onClick={getPodPids}
-            title="Load Pod-PID Mappings" 
-            disabled={!isAuthenticated}
-          >
-            <RefreshCw size={16} />
-          </button>
           <button className="icon-btn" onClick={() => toggleAllPods(true)} title="Expand All">
             <Maximize2 size={16} />
           </button>
@@ -160,16 +167,46 @@ export default function PodsCard() {
               id="podPidsAutoRefresh"
               checked={autoRefresh}
               onChange={handleToggleAutoRefresh}
+              disabled={!nodeID}
             />
             <label htmlFor="podPidsAutoRefresh">Auto</label>
           </div>
         </div>
       </div>
       <div className="card-body">
+        {/* Node ID Input Section */}
+        <div className="node-selector">
+          <div className="node-input-group">
+            <Server size={16} className="node-input-icon" />
+            <input
+              type="text"
+              className="node-input"
+              placeholder="Enter Node ID (e.g., node-1, minikube)"
+              value={nodeIDInput}
+              onChange={(e) => setNodeIDInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              disabled={!isAuthenticated || loading}
+            />
+            <button 
+              className="btn btn-primary btn-sm"
+              onClick={handleLoadPodPids}
+              disabled={!isAuthenticated || loading || !nodeIDInput.trim()}
+            >
+              {loading ? <RefreshCw size={14} className="spin" /> : <RefreshCw size={14} />}
+              <span>Load</span>
+            </button>
+          </div>
+          {nodeID && (
+            <div className="current-node-badge">
+              Current: <strong>{nodeID}</strong>
+            </div>
+          )}
+        </div>
+
         <div className="pods-summary" id="podsSummary">
           <div className="summary-item">
             <span className="summary-value" id="nodeNameDisplay">{nodeName}</span>
-            <span className="summary-label">Node</span>
+            <span className="summary-label">Node Name</span>
           </div>
           <div className="summary-item">
             <span className="summary-value" id="podsCount">{pods.length || '--'}</span>
@@ -187,7 +224,11 @@ export default function PodsCard() {
         <div className="pods-accordion" id="podsAccordion">
           {pods.length === 0 ? (
             <div className="pods-empty-state">
-              {isAuthenticated ? 'No pods found on this node' : 'Authenticate to view pod-PID mappings...'}
+              {!isAuthenticated 
+                ? 'Authenticate to view pod-PID mappings...' 
+                : !nodeID 
+                  ? 'Enter a Node ID above and click Load to view pod-PID mappings'
+                  : 'No pods found on this node'}
             </div>
           ) : (
             pods.map((pod, podIndex) => {

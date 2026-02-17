@@ -1619,6 +1619,74 @@ func (_c *MockService_DeleteScheduleStrategy_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// GetPodPIDMapping provides a mock function for the type MockService
+func (_mock *MockService) GetPodPIDMapping(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error) {
+	ret := _mock.Called(ctx, nodeID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPodPIDMapping")
+	}
+
+	var r0 *PodPIDMappingResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*PodPIDMappingResponse, error)); ok {
+		return returnFunc(ctx, nodeID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *PodPIDMappingResponse); ok {
+		r0 = returnFunc(ctx, nodeID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*PodPIDMappingResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = returnFunc(ctx, nodeID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_GetPodPIDMapping_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPodPIDMapping'
+type MockService_GetPodPIDMapping_Call struct {
+	*mock.Call
+}
+
+// GetPodPIDMapping is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeID string
+func (_e *MockService_Expecter) GetPodPIDMapping(ctx interface{}, nodeID interface{}) *MockService_GetPodPIDMapping_Call {
+	return &MockService_GetPodPIDMapping_Call{Call: _e.mock.On("GetPodPIDMapping", ctx, nodeID)}
+}
+
+func (_c *MockService_GetPodPIDMapping_Call) Run(run func(ctx context.Context, nodeID string)) *MockService_GetPodPIDMapping_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_GetPodPIDMapping_Call) Return(podPIDMappingResponse *PodPIDMappingResponse, err error) *MockService_GetPodPIDMapping_Call {
+	_c.Call.Return(podPIDMappingResponse, err)
+	return _c
+}
+
+func (_c *MockService_GetPodPIDMapping_Call) RunAndReturn(run func(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error)) *MockService_GetPodPIDMapping_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListScheduleIntents provides a mock function for the type MockService
 func (_mock *MockService) ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error {
 	ret := _mock.Called(ctx, filterOpts)
@@ -2576,6 +2644,74 @@ func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) Return(s string, er
 }
 
 func (_c *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod) (string, error)) *MockDecisionMakerAdapter_GetIntentMerkleRoot_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetPodPIDMapping provides a mock function for the type MockDecisionMakerAdapter
+func (_mock *MockDecisionMakerAdapter) GetPodPIDMapping(ctx context.Context, decisionMaker *DecisionMakerPod) (*PodPIDMappingResponse, error) {
+	ret := _mock.Called(ctx, decisionMaker)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPodPIDMapping")
+	}
+
+	var r0 *PodPIDMappingResponse
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) (*PodPIDMappingResponse, error)); ok {
+		return returnFunc(ctx, decisionMaker)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, *DecisionMakerPod) *PodPIDMappingResponse); ok {
+		r0 = returnFunc(ctx, decisionMaker)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*PodPIDMappingResponse)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, *DecisionMakerPod) error); ok {
+		r1 = returnFunc(ctx, decisionMaker)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockDecisionMakerAdapter_GetPodPIDMapping_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPodPIDMapping'
+type MockDecisionMakerAdapter_GetPodPIDMapping_Call struct {
+	*mock.Call
+}
+
+// GetPodPIDMapping is a helper method to define mock.On call
+//   - ctx context.Context
+//   - decisionMaker *DecisionMakerPod
+func (_e *MockDecisionMakerAdapter_Expecter) GetPodPIDMapping(ctx interface{}, decisionMaker interface{}) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	return &MockDecisionMakerAdapter_GetPodPIDMapping_Call{Call: _e.mock.On("GetPodPIDMapping", ctx, decisionMaker)}
+}
+
+func (_c *MockDecisionMakerAdapter_GetPodPIDMapping_Call) Run(run func(ctx context.Context, decisionMaker *DecisionMakerPod)) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 *DecisionMakerPod
+		if args[1] != nil {
+			arg1 = args[1].(*DecisionMakerPod)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetPodPIDMapping_Call) Return(podPIDMappingResponse *PodPIDMappingResponse, err error) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
+	_c.Call.Return(podPIDMappingResponse, err)
+	return _c
+}
+
+func (_c *MockDecisionMakerAdapter_GetPodPIDMapping_Call) RunAndReturn(run func(ctx context.Context, decisionMaker *DecisionMakerPod) (*PodPIDMappingResponse, error)) *MockDecisionMakerAdapter_GetPodPIDMapping_Call {
 	_c.Call.Return(run)
 	return _c
 }
