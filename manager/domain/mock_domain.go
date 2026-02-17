@@ -1687,6 +1687,68 @@ func (_c *MockService_GetPodPIDMapping_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// ListNodes provides a mock function for the type MockService
+func (_mock *MockService) ListNodes(ctx context.Context) ([]*Node, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListNodes")
+	}
+
+	var r0 []*Node
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*Node, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*Node); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Node)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockService_ListNodes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListNodes'
+type MockService_ListNodes_Call struct {
+	*mock.Call
+}
+
+// ListNodes is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockService_Expecter) ListNodes(ctx interface{}) *MockService_ListNodes_Call {
+	return &MockService_ListNodes_Call{Call: _e.mock.On("ListNodes", ctx)}
+}
+
+func (_c *MockService_ListNodes_Call) Run(run func(ctx context.Context)) *MockService_ListNodes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ListNodes_Call) Return(nodes []*Node, err error) *MockService_ListNodes_Call {
+	_c.Call.Return(nodes, err)
+	return _c
+}
+
+func (_c *MockService_ListNodes_Call) RunAndReturn(run func(ctx context.Context) ([]*Node, error)) *MockService_ListNodes_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListScheduleIntents provides a mock function for the type MockService
 func (_mock *MockService) ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error {
 	ret := _mock.Called(ctx, filterOpts)
@@ -2354,6 +2416,68 @@ type MockK8SAdapter_Expecter struct {
 
 func (_m *MockK8SAdapter) EXPECT() *MockK8SAdapter_Expecter {
 	return &MockK8SAdapter_Expecter{mock: &_m.Mock}
+}
+
+// ListNodes provides a mock function for the type MockK8SAdapter
+func (_mock *MockK8SAdapter) ListNodes(ctx context.Context) ([]*Node, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListNodes")
+	}
+
+	var r0 []*Node
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]*Node, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []*Node); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*Node)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockK8SAdapter_ListNodes_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListNodes'
+type MockK8SAdapter_ListNodes_Call struct {
+	*mock.Call
+}
+
+// ListNodes is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockK8SAdapter_Expecter) ListNodes(ctx interface{}) *MockK8SAdapter_ListNodes_Call {
+	return &MockK8SAdapter_ListNodes_Call{Call: _e.mock.On("ListNodes", ctx)}
+}
+
+func (_c *MockK8SAdapter_ListNodes_Call) Run(run func(ctx context.Context)) *MockK8SAdapter_ListNodes_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockK8SAdapter_ListNodes_Call) Return(nodes []*Node, err error) *MockK8SAdapter_ListNodes_Call {
+	_c.Call.Return(nodes, err)
+	return _c
+}
+
+func (_c *MockK8SAdapter_ListNodes_Call) RunAndReturn(run func(ctx context.Context) ([]*Node, error)) *MockK8SAdapter_ListNodes_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // QueryDecisionMakerPods provides a mock function for the type MockK8SAdapter

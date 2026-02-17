@@ -144,6 +144,15 @@ definitions:
       timestamp:
         type: string
     type: object
+  github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListNodesResponse:
+    properties:
+      data:
+        $ref: '#/definitions/rest.ListNodesResponse'
+      success:
+        type: boolean
+      timestamp:
+        type: string
+    type: object
   github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListPermissionsResponse:
     properties:
       data:
@@ -307,6 +316,13 @@ definitions:
       username:
         type: string
     type: object
+  rest.ListNodesResponse:
+    properties:
+      nodes:
+        items:
+          $ref: '#/definitions/rest.NodeInfo'
+        type: array
+    type: object
   rest.ListPermissionsResponse:
     properties:
       permissions:
@@ -379,6 +395,13 @@ definitions:
   rest.LoginResponse:
     properties:
       token:
+        type: string
+    type: object
+  rest.NodeInfo:
+    properties:
+      name:
+        type: string
+      status:
         type: string
     type: object
   rest.PodInfo:
@@ -636,6 +659,33 @@ paths:
       summary: List self schedule intents
       tags:
       - Strategies
+  /api/v1/nodes:
+    get:
+      description: Returns all nodes in the Kubernetes cluster
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListNodesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List all Kubernetes nodes
+      tags:
+      - Nodes
   /api/v1/nodes/{nodeID}/pods/pids:
     get:
       description: Returns all pods running on the specified node with their associated

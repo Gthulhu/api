@@ -197,6 +197,49 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/nodes": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns all nodes in the Kubernetes cluster",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Nodes"
+                ],
+                "summary": "List all Kubernetes nodes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListNodesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Gthulhu_api_manager_rest.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/nodes/{nodeID}/pods/pids": {
             "get": {
                 "security": [
@@ -1296,6 +1339,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListNodesResponse": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "$ref": "#/definitions/rest.ListNodesResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_Gthulhu_api_manager_rest.SuccessResponse-rest_ListPermissionsResponse": {
             "type": "object",
             "properties": {
@@ -1549,6 +1606,17 @@ const docTemplate = `{
                 }
             }
         },
+        "rest.ListNodesResponse": {
+            "type": "object",
+            "properties": {
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/rest.NodeInfo"
+                    }
+                }
+            }
+        },
         "rest.ListPermissionsResponse": {
             "type": "object",
             "properties": {
@@ -1661,6 +1729,17 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "rest.NodeInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }
