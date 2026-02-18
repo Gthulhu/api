@@ -48,8 +48,7 @@ func NewRestApp(configName string, configDirPath string) (*fx.App, error) {
 func StartRestApp(lc fx.Lifecycle, cfg config.ServerConfig, handler *rest.Handler) error {
 	engine := echo.New()
 	handler.SetupRoutes(engine)
-
-	// TODO: setup middleware, logging, etc.
+	rest.RegisterFrontend(engine)
 
 	lc.Append(fx.Hook{
 		OnStart: func(ctx context.Context) error {
