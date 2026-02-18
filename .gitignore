@@ -16,8 +16,3 @@ api
 config/manager_config.toml
 config/*_config.toml
 *.ref
-
-# Frontend build output (keep .gitkeep)
-web/dist/*
-!web/dist/.gitkeep
-web/node_modules
