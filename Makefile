@@ -24,8 +24,13 @@ deps:
 	go mod tidy
 	go mod download
 
+# Build frontend
+build-web:
+	@echo "Building frontend..."
+	cd web && npm ci && npm run build
+
 # Build the application
-build: deps
+build: deps build-web
 	@echo "Building application..."
 	go build -o bin/api-server
 
