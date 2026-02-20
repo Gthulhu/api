@@ -500,6 +500,63 @@ func (_c *MockRepository_DeleteStrategy_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// InsertIntents provides a mock function for the type MockRepository
+func (_mock *MockRepository) InsertIntents(ctx context.Context, intents []*ScheduleIntent) error {
+	ret := _mock.Called(ctx, intents)
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsertIntents")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []*ScheduleIntent) error); ok {
+		r0 = returnFunc(ctx, intents)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockRepository_InsertIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsertIntents'
+type MockRepository_InsertIntents_Call struct {
+	*mock.Call
+}
+
+// InsertIntents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - intents []*ScheduleIntent
+func (_e *MockRepository_Expecter) InsertIntents(ctx interface{}, intents interface{}) *MockRepository_InsertIntents_Call {
+	return &MockRepository_InsertIntents_Call{Call: _e.mock.On("InsertIntents", ctx, intents)}
+}
+
+func (_c *MockRepository_InsertIntents_Call) Run(run func(ctx context.Context, intents []*ScheduleIntent)) *MockRepository_InsertIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []*ScheduleIntent
+		if args[1] != nil {
+			arg1 = args[1].([]*ScheduleIntent)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockRepository_InsertIntents_Call) Return(err error) *MockRepository_InsertIntents_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockRepository_InsertIntents_Call) RunAndReturn(run func(ctx context.Context, intents []*ScheduleIntent) error) *MockRepository_InsertIntents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // InsertStrategyAndIntents provides a mock function for the type MockRepository
 func (_mock *MockRepository) InsertStrategyAndIntents(ctx context.Context, strategy *ScheduleStrategy, intents []*ScheduleIntent) error {
 	ret := _mock.Called(ctx, strategy, intents)
@@ -2102,6 +2159,57 @@ func (_c *MockService_QueryUsers_Call) Return(err error) *MockService_QueryUsers
 }
 
 func (_c *MockService_QueryUsers_Call) RunAndReturn(run func(ctx context.Context, opt *QueryUserOptions) error) *MockService_QueryUsers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReconcileIntents provides a mock function for the type MockService
+func (_mock *MockService) ReconcileIntents(ctx context.Context) error {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReconcileIntents")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockService_ReconcileIntents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReconcileIntents'
+type MockService_ReconcileIntents_Call struct {
+	*mock.Call
+}
+
+// ReconcileIntents is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockService_Expecter) ReconcileIntents(ctx interface{}) *MockService_ReconcileIntents_Call {
+	return &MockService_ReconcileIntents_Call{Call: _e.mock.On("ReconcileIntents", ctx)}
+}
+
+func (_c *MockService_ReconcileIntents_Call) Run(run func(ctx context.Context)) *MockService_ReconcileIntents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockService_ReconcileIntents_Call) Return(err error) *MockService_ReconcileIntents_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockService_ReconcileIntents_Call) RunAndReturn(run func(ctx context.Context) error) *MockService_ReconcileIntents_Call {
 	_c.Call.Return(run)
 	return _c
 }

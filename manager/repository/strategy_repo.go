@@ -48,6 +48,26 @@ func (r *repo) InsertStrategyAndIntents(ctx context.Context, strategy *domain.Sc
 	return nil
 }
 
+func (r *repo) InsertIntents(ctx context.Context, intents []*domain.ScheduleIntent) error {
+	if len(intents) == 0 {
+		return nil
+	}
+	now := time.Now().UnixMilli()
+	for _, intent := range intents {
+		if intent.ID.IsZero() {
+			intent.ID = bson.NewObjectID()
+		}
+		if intent.CreatedTime == 0 {
+			intent.CreatedTime = now
+		}
+		if intent.UpdatedTime == 0 {
+			intent.UpdatedTime = now
+		}
+	}
+	_, err := r.db.Collection(scheduleIntentCollection).InsertMany(ctx, intents)
+	return err
+}
+
 func (r *repo) BatchUpdateIntentsState(ctx context.Context, intentIDs []bson.ObjectID, newState domain.IntentState) error {
 	update := bson.M{
 		"$set": bson.M{

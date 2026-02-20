@@ -63,6 +63,7 @@ type Repository interface {
 	QueryAuditLogs(ctx context.Context, opt *QueryAuditLogOptions) error
 
 	InsertStrategyAndIntents(ctx context.Context, strategy *ScheduleStrategy, intents []*ScheduleIntent) error
+	InsertIntents(ctx context.Context, intents []*ScheduleIntent) error
 	BatchUpdateIntentsState(ctx context.Context, intentIDs []bson.ObjectID, newState IntentState) error
 	QueryStrategies(ctx context.Context, opt *QueryStrategyOptions) error
 	QueryIntents(ctx context.Context, opt *QueryIntentOptions) error
@@ -94,6 +95,7 @@ type Service interface {
 	DeleteScheduleIntents(ctx context.Context, operator *Claims, intentIDs []string) error
 	GetPodPIDMapping(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error)
 	ListNodes(ctx context.Context) ([]*Node, error)
+	ReconcileIntents(ctx context.Context) error
 }
 
 type QueryPodsOptions struct {

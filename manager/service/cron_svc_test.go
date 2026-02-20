@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
 func TestCheckDMIntentsNoK8SAdapter(t *testing.T) {
@@ -71,6 +72,13 @@ func TestCheckDMIntentsDMAdapterNilForOnlineNode(t *testing.T) {
 		State:  domain.NodeStateOnline,
 	}
 
+	mockRepo.EXPECT().
+		QueryStrategies(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryStrategyOptions) {
+			opt.Result = []*domain.ScheduleStrategy{}
+		}).
+		Return(nil).
+		Once()
 	mockK8S.EXPECT().
 		QueryDecisionMakerPods(mock.Anything, mock.Anything).
 		Return([]*domain.DecisionMakerPod{dm}, nil).
@@ -139,6 +147,13 @@ func TestCheckDMIntentsHappyPathOnlineOnly(t *testing.T) {
 	}
 	expectedRoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intents[1]})
 
+	mockRepo.EXPECT().
+		QueryStrategies(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryStrategyOptions) {
+			opt.Result = []*domain.ScheduleStrategy{}
+		}).
+		Return(nil).
+		Once()
 	mockK8S.EXPECT().
 		QueryDecisionMakerPods(mock.Anything, mock.Anything).
 		Return([]*domain.DecisionMakerPod{onlineDM, offlineDM}, nil).
@@ -226,6 +241,13 @@ func TestCheckDMIntentsComparesNodeScopedMerkleRoots(t *testing.T) {
 	expectedNodeARoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intents[0], intents[2]})
 	expectedNodeBRoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intents[1]})
 
+	mockRepo.EXPECT().
+		QueryStrategies(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryStrategyOptions) {
+			opt.Result = []*domain.ScheduleStrategy{}
+		}).
+		Return(nil).
+		Once()
 	mockK8S.EXPECT().
 		QueryDecisionMakerPods(mock.Anything, mock.Anything).
 		Return([]*domain.DecisionMakerPod{dmNodeA, dmNodeB}, nil).
@@ -253,6 +275,250 @@ func TestCheckDMIntentsComparesNodeScopedMerkleRoots(t *testing.T) {
 	}
 
 	err := svc.CheckDMIntents(ctx)
+	require.NoError(t, err)
+}
+
+func TestReconcileIntentsResendOnMerkleMismatch(t *testing.T) {
+	ctx := context.Background()
+	mockK8S := domain.NewMockK8SAdapter(t)
+	mockRepo := domain.NewMockRepository(t)
+	mockDM := domain.NewMockDecisionMakerAdapter(t)
+
+	dm := &domain.DecisionMakerPod{
+		NodeID: "node-a",
+		Host:   "10.0.0.1",
+		Port:   8080,
+		State:  domain.NodeStateOnline,
+	}
+	intent := &domain.ScheduleIntent{
+		BaseEntity:    domain.BaseEntity{ID: bson.NewObjectID()},
+		PodName:       "pod-a",
+		PodID:         "pod-id-a",
+		NodeID:        "node-a",
+		K8sNamespace:  "default",
+		CommandRegex:  "nginx",
+		Priority:      1,
+		ExecutionTime: 10,
+		PodLabels:     map[string]string{"app": "web"},
+	}
+	expectedRoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intent})
+
+	// refreshStaleIntents: no strategies → no stale checks
+	mockRepo.EXPECT().
+		QueryStrategies(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryStrategyOptions) {
+			opt.Result = []*domain.ScheduleStrategy{}
+		}).
+		Return(nil).Once()
+
+	// resyncIntentsToDMs
+	mockK8S.EXPECT().
+		QueryDecisionMakerPods(mock.Anything, mock.Anything).
+		Return([]*domain.DecisionMakerPod{dm}, nil).Once()
+	mockRepo.EXPECT().
+		QueryIntents(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryIntentOptions) {
+			opt.Result = []*domain.ScheduleIntent{intent}
+		}).
+		Return(nil).Once()
+
+	// DM returns a different hash → triggers re-send
+	mockDM.EXPECT().
+		GetIntentMerkleRoot(mock.Anything, dm).
+		Return("stale-hash", nil).Once()
+	mockDM.EXPECT().
+		SendSchedulingIntent(mock.Anything, dm, []*domain.ScheduleIntent{intent}).
+		Return(nil).Once()
+	mockRepo.EXPECT().
+		BatchUpdateIntentsState(mock.Anything, []bson.ObjectID{intent.ID}, domain.IntentStateSent).
+		Return(nil).Once()
+
+	svc := &Service{
+		K8SAdapter: mockK8S,
+		Repo:       mockRepo,
+		DMAdapter:  mockDM,
+	}
+
+	err := svc.ReconcileIntents(ctx)
+	require.NoError(t, err)
+
+	// Verify that the root hash we expected matches (sanity)
+	assert.NotEqual(t, "stale-hash", expectedRoot)
+}
+
+func TestReconcileIntentsNoResendOnMatchingMerkle(t *testing.T) {
+	ctx := context.Background()
+	mockK8S := domain.NewMockK8SAdapter(t)
+	mockRepo := domain.NewMockRepository(t)
+	mockDM := domain.NewMockDecisionMakerAdapter(t)
+
+	dm := &domain.DecisionMakerPod{
+		NodeID: "node-a",
+		Host:   "10.0.0.1",
+		Port:   8080,
+		State:  domain.NodeStateOnline,
+	}
+	intent := &domain.ScheduleIntent{
+		PodName:       "pod-a",
+		PodID:         "pod-id-a",
+		NodeID:        "node-a",
+		K8sNamespace:  "default",
+		CommandRegex:  "nginx",
+		Priority:      1,
+		ExecutionTime: 10,
+		PodLabels:     map[string]string{"app": "web"},
+	}
+	expectedRoot := buildScheduleIntentMerkleRoot([]*domain.ScheduleIntent{intent})
+
+	mockRepo.EXPECT().
+		QueryStrategies(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryStrategyOptions) {
+			opt.Result = []*domain.ScheduleStrategy{}
+		}).
+		Return(nil).Once()
+	mockK8S.EXPECT().
+		QueryDecisionMakerPods(mock.Anything, mock.Anything).
+		Return([]*domain.DecisionMakerPod{dm}, nil).Once()
+	mockRepo.EXPECT().
+		QueryIntents(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryIntentOptions) {
+			opt.Result = []*domain.ScheduleIntent{intent}
+		}).
+		Return(nil).Once()
+
+	// DM returns matching hash → no re-send should happen
+	mockDM.EXPECT().
+		GetIntentMerkleRoot(mock.Anything, dm).
+		Return(expectedRoot, nil).Once()
+	// SendSchedulingIntent should NOT be called (test will fail if it is)
+
+	svc := &Service{
+		K8SAdapter: mockK8S,
+		Repo:       mockRepo,
+		DMAdapter:  mockDM,
+	}
+
+	err := svc.ReconcileIntents(ctx)
+	require.NoError(t, err)
+}
+
+func TestReconcileIntentsRefreshStaleIntents(t *testing.T) {
+	ctx := context.Background()
+	mockK8S := domain.NewMockK8SAdapter(t)
+	mockRepo := domain.NewMockRepository(t)
+	mockDM := domain.NewMockDecisionMakerAdapter(t)
+
+	strategyID := bson.NewObjectID()
+	strategy := &domain.ScheduleStrategy{
+		BaseEntity:     domain.BaseEntity{ID: strategyID, CreatorID: bson.NewObjectID(), UpdaterID: bson.NewObjectID()},
+		K8sNamespace:   []string{"default"},
+		LabelSelectors: []domain.LabelSelector{{Key: "app", Value: "web"}},
+		CommandRegex:   "nginx",
+		Priority:       1,
+		ExecutionTime:  10,
+	}
+
+	// Stale intent: references a pod that no longer exists
+	staleIntentID := bson.NewObjectID()
+	staleIntent := &domain.ScheduleIntent{
+		BaseEntity:    domain.BaseEntity{ID: staleIntentID},
+		StrategyID:    strategyID,
+		PodName:       "old-pod",
+		PodID:         "old-pod-id",
+		NodeID:        "node-a",
+		K8sNamespace:  "default",
+		CommandRegex:  "nginx",
+		Priority:      1,
+		ExecutionTime: 10,
+		PodLabels:     map[string]string{"app": "web"},
+		State:         domain.IntentStateSent,
+	}
+
+	// New pod that replaced the old one
+	newPod := &domain.Pod{
+		Name:         "new-pod",
+		PodID:        "new-pod-id",
+		NodeID:       "node-a",
+		K8SNamespace: "default",
+		Labels:       map[string]string{"app": "web"},
+	}
+
+	dm := &domain.DecisionMakerPod{
+		NodeID: "node-a",
+		Host:   "10.0.0.1",
+		Port:   8080,
+		State:  domain.NodeStateOnline,
+	}
+
+	// Step 1: refreshStaleIntents
+	mockRepo.EXPECT().
+		QueryStrategies(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryStrategyOptions) {
+			opt.Result = []*domain.ScheduleStrategy{strategy}
+		}).
+		Return(nil).Once()
+	mockK8S.EXPECT().
+		QueryPods(mock.Anything, mock.Anything).
+		Run(func(_ context.Context, opt *domain.QueryPodsOptions) {
+			assert.Equal(t, []string{"default"}, opt.K8SNamespace)
+			assert.Equal(t, "nginx", opt.CommandRegex)
+		}).
+		Return([]*domain.Pod{newPod}, nil).Once()
+	mockRepo.EXPECT().
+		QueryIntents(mock.Anything, mock.MatchedBy(func(opt *domain.QueryIntentOptions) bool {
+			return len(opt.StrategyIDs) == 1 && opt.StrategyIDs[0] == strategyID
+		})).
+		Run(func(_ context.Context, opt *domain.QueryIntentOptions) {
+			opt.Result = []*domain.ScheduleIntent{staleIntent}
+		}).
+		Return(nil).Once()
+	// Delete stale intent
+	mockRepo.EXPECT().
+		DeleteIntents(mock.Anything, []bson.ObjectID{staleIntentID}).
+		Return(nil).Once()
+	// Notify DM to remove stale pod intents from its in-memory cache
+	mockK8S.EXPECT().
+		QueryDecisionMakerPods(mock.Anything, mock.MatchedBy(func(opt *domain.QueryDecisionMakerPodsOptions) bool {
+			return len(opt.NodeIDs) == 1 && opt.NodeIDs[0] == "node-a"
+		})).
+		Return([]*domain.DecisionMakerPod{dm}, nil).Once()
+	mockDM.EXPECT().
+		DeleteSchedulingIntents(mock.Anything, dm, mock.MatchedBy(func(req *domain.DeleteIntentsRequest) bool {
+			return len(req.PodIDs) == 1 && req.PodIDs[0] == "old-pod-id"
+		})).
+		Return(nil).Once()
+	// Insert new intent for the replacement pod
+	mockRepo.EXPECT().
+		InsertIntents(mock.Anything, mock.MatchedBy(func(intents []*domain.ScheduleIntent) bool {
+			return len(intents) == 1 && intents[0].PodID == "new-pod-id"
+		})).
+		Return(nil).Once()
+
+	// Step 2: resyncIntentsToDMs - DM returns empty hash (matching empty intents)
+	mockK8S.EXPECT().
+		QueryDecisionMakerPods(mock.Anything, mock.Anything).
+		Return([]*domain.DecisionMakerPod{dm}, nil).Once()
+	mockRepo.EXPECT().
+		QueryIntents(mock.Anything, mock.MatchedBy(func(opt *domain.QueryIntentOptions) bool {
+			return len(opt.StrategyIDs) == 0 // resync queries all intents
+		})).
+		Run(func(_ context.Context, opt *domain.QueryIntentOptions) {
+			opt.Result = []*domain.ScheduleIntent{} // will be filled with new intents after refresh
+		}).
+		Return(nil).Once()
+	// DM returns empty hash which matches empty intents → no re-send
+	emptyRootHash := util.BuildMerkleTree(nil).Hash
+	mockDM.EXPECT().
+		GetIntentMerkleRoot(mock.Anything, dm).
+		Return(emptyRootHash, nil).Once()
+
+	svc := &Service{
+		K8SAdapter: mockK8S,
+		Repo:       mockRepo,
+		DMAdapter:  mockDM,
+	}
+
+	err := svc.ReconcileIntents(ctx)
 	require.NoError(t, err)
 }
 
