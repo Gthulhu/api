@@ -113,7 +113,7 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 					continue
 				}
 				schedulingIntent := &domain.SchedulingIntents{
-					Priority:      intent.Priority > 0,
+					Priority:      intent.Priority,
 					ExecutionTime: uint64(intent.ExecutionTime),
 					PID:           process.PID,
 					CommandRegex:  intent.CommandRegex,

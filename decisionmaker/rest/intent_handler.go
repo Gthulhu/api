@@ -54,7 +54,7 @@ func (h *Handler) HandleIntents(w http.ResponseWriter, r *http.Request) {
 
 // SchedulingStrategy represents a strategy for process scheduling
 type SchedulingIntents struct {
-	Priority      bool            `json:"priority"`                // If true, set vtime to minimum vtime
+	Priority      int             `json:"priority"`                // Priority value; higher value means higher priority
 	ExecutionTime uint64          `json:"execution_time"`          // Time slice for this process in nanoseconds
 	PID           int             `json:"pid,omitempty"`           // Process ID to apply this strategy to
 	Selectors     []LabelSelector `json:"selectors,omitempty"`     // Label selectors to match pods
