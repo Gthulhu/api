@@ -59,14 +59,23 @@ const (
 	pauseCommand = "pause"
 )
 
-// ListAllSchedulingIntents retrieves all stored scheduling intents
+// ListAllSchedulingIntents re-scans /proc and recalculates scheduling intents
+// from the cached domain.Intent list, since pod processes may change over time.
 func (svc *Service) ListAllSchedulingIntents(ctx context.Context) ([]*domain.SchedulingIntents, error) {
-	intents := []*domain.SchedulingIntents{}
-	svc.schedulingIntentsMap.Range(func(key string, value []*domain.SchedulingIntents) bool {
-		intents = append(intents, value...)
-		return true
-	})
-	return intents, nil
+	svc.intentCacheMu.RLock()
+	cachedIntents := svc.intentCache
+	svc.intentCacheMu.RUnlock()
+
+	if len(cachedIntents) == 0 {
+		return []*domain.SchedulingIntents{}, nil
+	}
+
+	podInfos, err := svc.GetAllPodInfos(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return svc.resolveSchedulingIntents(ctx, cachedIntents, podInfos), nil
 }
 
 // ProcessIntents processes a list of scheduling intents and updates the internal map
@@ -76,8 +85,7 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 		return err
 	}
 
-	// update intent map and merkle tree
-	svc.schedulingIntentsMap.Clear()
+	// update intent cache and merkle tree
 	normalizedIntents := normalizeIntentInputs(intents)
 	sortedIntents := sortIntentsByKey(normalizedIntents)
 	leafHashes := make([]string, 0, len(sortedIntents))
@@ -94,6 +102,16 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 		svc.intentMerkleRootHash = ""
 	}
 	svc.intentCacheMu.Unlock()
+	svc.resolveSchedulingIntents(ctx, normalizedIntents, podInfos)
+	logger.Logger(ctx).Info().Msgf("Discovered pods: %+v", podInfos)
+	return nil
+}
+
+// resolveSchedulingIntents converts domain.Intents + PodInfos into SchedulingIntents,
+// updates the schedulingIntentsMap and returns all resolved scheduling intents.
+func (svc *Service) resolveSchedulingIntents(ctx context.Context, intents []*domain.Intent, podInfos map[string]*domain.PodInfo) []*domain.SchedulingIntents {
+	svc.schedulingIntentsMap.Clear()
+	var allSchedulingIntents []*domain.SchedulingIntents
 	for _, intent := range intents {
 		podInfo := podInfos[intent.PodID]
 		logger.Logger(ctx).Info().Msgf("Processing intent for PodName:%s PodID: %s on NodeID: %s, Process:%+v", intent.PodName, intent.PodID, intent.NodeID, podInfo)
@@ -121,11 +139,11 @@ func (svc *Service) ProcessIntents(ctx context.Context, intents []*domain.Intent
 				}
 				logger.Logger(ctx).Info().Msgf("Created SchedulingIntent: %+v for Process PID: %d", schedulingIntent, process.PID)
 				svc.schedulingIntentsMap.Store(fmt.Sprintf("%s-%d", intent.PodID, process.PID), []*domain.SchedulingIntents{schedulingIntent})
+				allSchedulingIntents = append(allSchedulingIntents, schedulingIntent)
 			}
 		}
 	}
-	logger.Logger(ctx).Info().Msgf("Discovered pods: %+v", podInfos)
-	return nil
+	return allSchedulingIntents
 }
 
 // GetAllPodInfos retrieves all pod information by scanning the /proc filesystem
