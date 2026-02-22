@@ -88,6 +88,7 @@ func startTLSServer(ctx context.Context, engine *echo.Echo, addr string, mtlsCfg
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 		ClientCAs:    caPool,
+		MinVersion:   tls.VersionTLS12,
 	}
 
 	ln, err := net.Listen("tcp", addr)
