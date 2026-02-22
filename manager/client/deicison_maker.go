@@ -35,6 +35,7 @@ func NewDecisionMakerClient(keyConfig config.KeyConfig, mtlsCfg config.MTLSConfi
 		tlsCfg := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			RootCAs:      caPool,
+			MinVersion:   tls.VersionTLS12,
 		}
 		httpClient = &http.Client{
 			Transport: &http.Transport{
