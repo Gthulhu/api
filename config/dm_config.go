@@ -10,6 +10,7 @@ type DecisionMakerConfig struct {
 	Server  ServerConfig  `mapstructure:"server"`
 	Logging LoggingConfig `mapstructure:"logging"`
 	Token   TokenConfig   `mapstructure:"token"`
+	MTLS    MTLSConfig    `mapstructure:"mtls"`
 }
 
 var (

@@ -3,6 +3,8 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,21 +18,55 @@ import (
 	"github.com/Gthulhu/api/pkg/logger"
 )
 
-func NewDecisionMakerClient(keyConfig config.KeyConfig) domain.DecisionMakerAdapter {
+func NewDecisionMakerClient(keyConfig config.KeyConfig, mtlsCfg config.MTLSConfig) (domain.DecisionMakerAdapter, error) {
+	httpClient := http.DefaultClient
+
+	if mtlsCfg.Enable {
+		cert, err := tls.X509KeyPair([]byte(mtlsCfg.CertPem.Value()), []byte(mtlsCfg.KeyPem.Value()))
+		if err != nil {
+			return nil, fmt.Errorf("load mTLS client certificate: %w", err)
+		}
+
+		caPool := x509.NewCertPool()
+		if !caPool.AppendCertsFromPEM([]byte(mtlsCfg.CAPem.Value())) {
+			return nil, fmt.Errorf("parse mTLS CA certificate")
+		}
+
+		tlsCfg := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      caPool,
+		}
+		httpClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsCfg,
+			},
+		}
+	}
+
 	return &DecisionMakerClient{
-		Client:         http.DefaultClient,
+		Client:         httpClient,
+		mtlsEnabled:    mtlsCfg.Enable,
 		tokenPublicKey: keyConfig.DMPublicKeyPem.Value(),
 		clientID:       keyConfig.ClientID,
 		tokenCache:     cache.New[string, string](),
-	}
+	}, nil
 }
 
 type DecisionMakerClient struct {
 	*http.Client
 
+	mtlsEnabled    bool
 	tokenPublicKey string
 	clientID       string
 	tokenCache     *cache.Cache[string, string]
+}
+
+// scheme returns "https" when mTLS is enabled, "http" otherwise.
+func (dm *DecisionMakerClient) scheme() string {
+	if dm.mtlsEnabled {
+		return "https"
+	}
+	return "http"
 }
 
 func (dm *DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decisionMaker *domain.DecisionMakerPod, intents []*domain.ScheduleIntent) error {
@@ -61,7 +97,7 @@ func (dm *DecisionMakerClient) SendSchedulingIntent(ctx context.Context, decisio
 	if err != nil {
 		return err
 	}
-	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
+	endpoint := dm.scheme() + "://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return err
@@ -85,7 +121,7 @@ func (dm *DecisionMakerClient) GetIntentMerkleRoot(ctx context.Context, decision
 		return "", err
 	}
 
-	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents/merkle"
+	endpoint := dm.scheme() + "://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents/merkle"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return "", err
@@ -124,7 +160,7 @@ func (dm *DecisionMakerClient) GetToken(ctx context.Context, decisionMaker *doma
 	if err != nil {
 		return "", err
 	}
-	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/auth/token"
+	endpoint := dm.scheme() + "://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/auth/token"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return "", err
@@ -169,7 +205,7 @@ func (dm *DecisionMakerClient) DeleteSchedulingIntents(ctx context.Context, deci
 		if err != nil {
 			return err
 		}
-		endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
+		endpoint := dm.scheme() + "://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(jsonBody))
 		if err != nil {
 			return err
@@ -196,7 +232,7 @@ func (dm *DecisionMakerClient) DeleteSchedulingIntents(ctx context.Context, deci
 		if err != nil {
 			return err
 		}
-		endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
+		endpoint := dm.scheme() + "://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/intents"
 		httpReq, err := http.NewRequestWithContext(ctx, http.MethodDelete, endpoint, bytes.NewBuffer(jsonBody))
 		if err != nil {
 			return err
@@ -222,7 +258,7 @@ func (dm *DecisionMakerClient) GetPodPIDMapping(ctx context.Context, decisionMak
 		return nil, err
 	}
 
-	endpoint := "http://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/pods/pids"
+	endpoint := dm.scheme() + "://" + decisionMaker.Host + ":" + strconv.Itoa(decisionMaker.Port) + "/api/v1/pods/pids"
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
 		return nil, err

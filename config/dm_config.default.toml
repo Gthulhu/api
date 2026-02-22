@@ -62,3 +62,21 @@ X6m7Mp9nAMhRyXhULslO3trWFbFCa2dbQkDSyBRvsb2HZtztoLVyo1mtUg==
 -----END RSA PRIVATE KEY-----
 """
 token_duration_hr = 24
+
+[mtls]
+enable = false
+cert_pem = """
+-----BEGIN CERTIFICATE-----
+YOUR_DM_CERTIFICATE_HERE
+-----END CERTIFICATE-----
+"""
+key_pem = """
+-----BEGIN EC PRIVATE KEY-----
+YOUR_DM_PRIVATE_KEY_HERE
+-----END EC PRIVATE KEY-----
+"""
+ca_pem = """
+-----BEGIN CERTIFICATE-----
+YOUR_CA_CERTIFICATE_HERE
+-----END CERTIFICATE-----
+"""
