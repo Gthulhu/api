@@ -37,10 +37,16 @@ func NewDecisionMakerClient(keyConfig config.KeyConfig, mtlsCfg config.MTLSConfi
 			RootCAs:      caPool,
 			MinVersion:   tls.VersionTLS12,
 		}
+
+		defaultTransport, ok := http.DefaultTransport.(*http.Transport)
+		if !ok {
+			return nil, fmt.Errorf("unexpected default transport type %T", http.DefaultTransport)
+		}
+		mtlsTransport := defaultTransport.Clone()
+		mtlsTransport.TLSClientConfig = tlsCfg
+
 		httpClient = &http.Client{
-			Transport: &http.Transport{
-				TLSClientConfig: tlsCfg,
-			},
+			Transport: mtlsTransport,
 		}
 	}
 
