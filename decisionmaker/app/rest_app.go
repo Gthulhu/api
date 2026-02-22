@@ -80,8 +80,12 @@ func startTLSServer(ctx context.Context, engine *echo.Echo, addr string, mtlsCfg
 	}
 
 	caPool := x509.NewCertPool()
-	if !caPool.AppendCertsFromPEM([]byte(mtlsCfg.CAPem.Value())) {
-		return fmt.Errorf("parse mTLS CA certificate")
+	caPEM := mtlsCfg.CAPem.Value()
+	if caPEM == "" {
+		return fmt.Errorf("mTLS server CA PEM is empty; cannot configure client certificate validation")
+	}
+	if !caPool.AppendCertsFromPEM([]byte(caPEM)) {
+		return fmt.Errorf("no CA certificates found in mTLS server CA PEM; failed to parse CA bundle")
 	}
 
 	tlsCfg := &tls.Config{
