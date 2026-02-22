@@ -33,6 +33,9 @@ func ConfigModule(cfg config.ManageConfig) (fx.Option, error) {
 		fx.Provide(func(managerCfg config.ManageConfig) config.K8SConfig {
 			return managerCfg.K8S
 		}),
+		fx.Provide(func(managerCfg config.ManageConfig) config.MTLSConfig {
+			return managerCfg.MTLS
+		}),
 	), nil
 }
 
