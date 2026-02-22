@@ -215,8 +215,8 @@ func generateTestCerts(t *testing.T) testCerts {
 	t.Helper()
 
 	// Use a fixed time window so tests remain deterministic regardless of when they run.
-	notBefore := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
-	notAfter := time.Date(2035, 1, 1, 0, 0, 0, 0, time.UTC)
+	notBefore := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
+	notAfter := time.Date(2100, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	// Generate CA key + cert
 	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
