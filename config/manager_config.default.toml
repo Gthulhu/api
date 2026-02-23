@@ -102,6 +102,7 @@ in_cluster = false
 
 [mtls]
 enable = false
+server_name = "localhost"
 cert_pem = """
 -----BEGIN CERTIFICATE-----
 YOUR_MANAGER_CERTIFICATE_HERE

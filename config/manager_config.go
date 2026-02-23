@@ -43,10 +43,11 @@ type ManageConfig struct {
 // CertPem and KeyPem are the service's own certificate/key pair signed by the private CA.
 // CAPem is the private CA certificate used to verify the peer's certificate.
 type MTLSConfig struct {
-	Enable  bool        `mapstructure:"enable"`
-	CertPem SecretValue `mapstructure:"cert_pem"`
-	KeyPem  SecretValue `mapstructure:"key_pem"`
-	CAPem   SecretValue `mapstructure:"ca_pem"`
+	Enable     bool        `mapstructure:"enable"`
+	ServerName string      `mapstructure:"server_name"`
+	CertPem    SecretValue `mapstructure:"cert_pem"`
+	KeyPem     SecretValue `mapstructure:"key_pem"`
+	CAPem      SecretValue `mapstructure:"ca_pem"`
 }
 
 type MongoDBConfig struct {
@@ -80,9 +81,7 @@ type K8SConfig struct {
 	IsInCluster    bool   `mapstructure:"in_cluster"`
 }
 
-var (
-	managerCfg *ManageConfig
-)
+var managerCfg *ManageConfig
 
 func GetManagerConfig() *ManageConfig {
 	return managerCfg
