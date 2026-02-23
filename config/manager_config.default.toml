@@ -99,3 +99,21 @@ admin_password = "your-password-here"
 [k8s]
 kube_config_path = "/path/to/kubeconfig"
 in_cluster = false
+
+[mtls]
+enable = false
+cert_pem = """
+-----BEGIN CERTIFICATE-----
+YOUR_MANAGER_CERTIFICATE_HERE
+-----END CERTIFICATE-----
+"""
+key_pem = """
+-----BEGIN EC PRIVATE KEY-----
+YOUR_MANAGER_PRIVATE_KEY_HERE
+-----END EC PRIVATE KEY-----
+"""
+ca_pem = """
+-----BEGIN CERTIFICATE-----
+YOUR_CA_CERTIFICATE_HERE
+-----END CERTIFICATE-----
+"""

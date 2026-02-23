@@ -36,6 +36,17 @@ type ManageConfig struct {
 	Key     KeyConfig     `mapstructure:"key"`
 	Account AccountConfig `mapstructure:"account"`
 	K8S     K8SConfig     `mapstructure:"k8s"`
+	MTLS    MTLSConfig    `mapstructure:"mtls"`
+}
+
+// MTLSConfig holds the mutual TLS configuration used for Manager ↔ Decision Maker communication.
+// CertPem and KeyPem are the service's own certificate/key pair signed by the private CA.
+// CAPem is the private CA certificate used to verify the peer's certificate.
+type MTLSConfig struct {
+	Enable  bool        `mapstructure:"enable"`
+	CertPem SecretValue `mapstructure:"cert_pem"`
+	KeyPem  SecretValue `mapstructure:"key_pem"`
+	CAPem   SecretValue `mapstructure:"ca_pem"`
 }
 
 type MongoDBConfig struct {

@@ -239,6 +239,13 @@ client_id = "your-client-id"
 [account]
 admin_email = "admin@example.com"
 admin_password = "your-password"
+
+# mTLS for Manager → Decision Maker communication (optional, default: disabled)
+[mtls]
+enable = false
+cert_pem = "..."   # Manager's client certificate (signed by private CA)
+key_pem  = "..."   # Manager's client private key
+ca_pem   = "..."   # Private CA certificate (to verify Decision Maker's server cert)
 ```
 
 #### Decision Maker Configuration (`config/dm_config.toml`)
@@ -252,6 +259,13 @@ level = "info"
 [token]
 rsa_private_key_pem = "..."
 token_duration_hr = 24
+
+# mTLS server for Manager → Decision Maker communication (optional, default: disabled)
+[mtls]
+enable = false
+cert_pem = "..."   # Decision Maker's server certificate (signed by private CA)
+key_pem  = "..."   # Decision Maker's server private key
+ca_pem   = "..."   # Private CA certificate (to verify Manager's client cert)
 ```
 
 ### 3. Start Services
@@ -275,6 +289,148 @@ go run main.go decisionmaker -c dm_config -d /path/to/config
 ### 4. Test API
 
 Please refer to https://github.com/Gthulhu/chart?tab=readme-ov-file#testing for testing the API endpoints using curl.
+
+## mTLS Setup: Manager ↔ Decision Maker
+
+The Manager communicates with every Decision Maker node using **mutual TLS (mTLS)**.  Both sides authenticate each other with certificates signed by a shared **private CA**, so neither plain-text traffic nor untrusted connections are accepted.
+
+> **Note**: The Manager's external HTTP API (web GUI, `/api/v1/…`) intentionally remains plain HTTP.  In a production cluster this endpoint is typically exposed through a Kubernetes Ingress with TLS termination.
+
+### Why mTLS?
+
+Scheduling decisions affect the Linux kernel scheduler on every node.  A compromised connection between the Manager and a Decision Maker could allow an attacker to manipulate per-process CPU priorities.  mTLS provides:
+
+- **Server authentication** – the Manager verifies it is talking to a genuine Decision Maker.
+- **Client authentication** – the Decision Maker verifies only the authorised Manager can push intents.
+- **Encrypted channel** – all scheduling intents are protected in transit.
+
+### Step-by-step: Generate certificates with a private CA
+
+The commands below use only the OpenSSL CLI. Replace `<DM_IP>` with the actual IP or hostname of each Decision Maker node.
+
+#### 1. Create the private CA
+
+```bash
+# Generate CA private key (EC P-256 recommended; RSA-4096 also works)
+openssl ecparam -name prime256v1 -genkey -noout -out ca.key
+
+# Self-signed CA certificate (10-year validity)
+openssl req -new -x509 -days 3650 \
+  -key ca.key \
+  -out ca.crt \
+  -subj "/CN=Gthulhu-Private-CA"
+```
+
+#### 2. Generate the Manager client certificate
+
+```bash
+# Manager private key
+openssl ecparam -name prime256v1 -genkey -noout -out manager.key
+
+# Certificate signing request
+openssl req -new \
+  -key manager.key \
+  -out manager.csr \
+  -subj "/CN=gthulhu-manager"
+
+# Sign with the private CA (2-year validity, client-auth EKU)
+openssl x509 -req -days 730 \
+  -in manager.csr \
+  -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -extfile <(printf "extendedKeyUsage=clientAuth") \
+  -out manager.crt
+```
+
+#### 3. Generate a Decision Maker server certificate
+
+Repeat for each DM node, setting the correct IP/DNS in `subjectAltName`.
+
+```bash
+# Decision Maker private key
+openssl ecparam -name prime256v1 -genkey -noout -out dm.key
+
+# CSR
+openssl req -new \
+  -key dm.key \
+  -out dm.csr \
+  -subj "/CN=gthulhu-decisionmaker"
+
+# Sign with the private CA (2-year validity, server-auth + client-auth EKUs + SAN)
+openssl x509 -req -days 730 \
+  -in dm.csr \
+  -CA ca.crt -CAkey ca.key -CAcreateserial \
+  -extfile <(printf "subjectAltName=IP:<DM_IP>\nextendedKeyUsage=serverAuth,clientAuth") \
+  -out dm.crt
+```
+
+#### 4. Embed certificates in configuration
+
+Paste the PEM file contents into the respective config files.
+
+**`config/manager_config.toml`**
+
+```toml
+[mtls]
+enable = true
+cert_pem = """
+-----BEGIN CERTIFICATE-----
+<contents of manager.crt>
+-----END CERTIFICATE-----
+"""
+key_pem = """
+-----BEGIN EC PRIVATE KEY-----
+<contents of manager.key>
+-----END EC PRIVATE KEY-----
+"""
+ca_pem = """
+-----BEGIN CERTIFICATE-----
+<contents of ca.crt>
+-----END CERTIFICATE-----
+"""
+```
+
+**`config/dm_config.toml`**
+
+```toml
+[mtls]
+enable = true
+cert_pem = """
+-----BEGIN CERTIFICATE-----
+<contents of dm.crt>
+-----END CERTIFICATE-----
+"""
+key_pem = """
+-----BEGIN EC PRIVATE KEY-----
+<contents of dm.key>
+-----END EC PRIVATE KEY-----
+"""
+ca_pem = """
+-----BEGIN CERTIFICATE-----
+<contents of ca.crt>
+-----END CERTIFICATE-----
+"""
+```
+
+#### 5. Verify
+
+Start both services and confirm the Decision Maker log contains:
+
+```
+starting dm server with mTLS on port :8080
+```
+
+And the Manager log shows successful intent reconciliation without TLS errors.
+
+### Kubernetes: mounting certificates as Secrets
+
+In a production deployment, store PEM content in Kubernetes Secrets and mount them as environment variables or files, then reference them in the TOML config.
+
+```bash
+kubectl create secret generic gthulhu-mtls-certs \
+  --from-file=ca.crt \
+  --from-file=manager.crt \
+  --from-file=manager.key
+```
 
 ## Kubernetes Deployment
 

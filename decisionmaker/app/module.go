@@ -19,6 +19,9 @@ func ConfigModule(cfg config.DecisionMakerConfig) (fx.Option, error) {
 		fx.Provide(func(dmCfg config.DecisionMakerConfig) config.TokenConfig {
 			return dmCfg.Token
 		}),
+		fx.Provide(func(dmCfg config.DecisionMakerConfig) config.MTLSConfig {
+			return dmCfg.MTLS
+		}),
 	), nil
 }
 
