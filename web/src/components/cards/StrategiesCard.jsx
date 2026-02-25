@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../../context/AppContext';
-import { Target, Download, Trash2, Save, FolderOpen, Loader2, XCircle, Inbox, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react';
+import { Target, Download, Trash2, Save, FolderOpen, Loader2, XCircle, Inbox, ChevronDown, ChevronRight, HelpCircle, Pencil } from 'lucide-react';
 
 export default function StrategiesCard() {
   const { isAuthenticated, makeAuthenticatedRequest, showToast, strategyCounter, setStrategyCounter } = useApp();
   const [strategies, setStrategies] = useState([]);
   const [loadedStrategies, setLoadedStrategies] = useState([]);
   const [expandedStrategies, setExpandedStrategies] = useState({});
+  const [editingStrategyId, setEditingStrategyId] = useState(null);
+  const [editStrategy, setEditStrategy] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,6 +61,67 @@ export default function StrategiesCard() {
       ...prev,
       [strategyId]: !prev[strategyId]
     }));
+  };
+
+  const beginEditStrategy = (strategy) => {
+    const selectors = (strategy.LabelSelectors || []).map(selector => ({
+      key: selector.key || '',
+      value: selector.value || ''
+    }));
+    if (selectors.length === 0) {
+      selectors.push({ key: '', value: '' });
+    }
+    setEditingStrategyId(strategy.ID);
+    setEditStrategy({
+      id: strategy.ID,
+      strategyNamespace: strategy.StrategyNamespace || '',
+      priority: strategy.Priority || 0,
+      executionTime: strategy.ExecutionTime || 0,
+      commandRegex: strategy.CommandRegex || '',
+      k8sNamespace: strategy.K8sNamespace ? strategy.K8sNamespace.join(', ') : '',
+      selectors
+    });
+    setExpandedStrategies(prev => ({
+      ...prev,
+      [strategy.ID]: true
+    }));
+  };
+
+  const cancelEditStrategy = () => {
+    setEditingStrategyId(null);
+    setEditStrategy(null);
+  };
+
+  const updateEditField = (field, value) => {
+    setEditStrategy(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const addEditSelector = () => {
+    setEditStrategy(prev => ({
+      ...prev,
+      selectors: [...prev.selectors, { key: '', value: '' }]
+    }));
+  };
+
+  const removeEditSelector = (index) => {
+    setEditStrategy(prev => {
+      const selectors = prev.selectors.filter((_, i) => i !== index);
+      if (selectors.length === 0) {
+        selectors.push({ key: '', value: '' });
+      }
+      return { ...prev, selectors };
+    });
+  };
+
+  const updateEditSelector = (index, field, value) => {
+    setEditStrategy(prev => {
+      const selectors = [...prev.selectors];
+      selectors[index] = { ...selectors[index], [field]: value };
+      return { ...prev, selectors };
+    });
   };
 
   const addStrategy = () => {
@@ -179,8 +242,86 @@ export default function StrategiesCard() {
     }
   };
 
-  const handleShowDeleteModal = () => {
-    window.dispatchEvent(new CustomEvent('openDeleteStrategyModal'));
+  const handleDeleteStrategy = async (strategyId) => {
+    if (!window.confirm('Are you sure you want to delete this strategy? This will also delete all associated intents.')) {
+      return;
+    }
+    
+    try {
+      const response = await makeAuthenticatedRequest('/api/v1/strategies', {
+        method: 'DELETE',
+        body: JSON.stringify({ strategyId })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        showToast('success', 'Strategy deleted successfully');
+        getStrategies();
+        window.dispatchEvent(new CustomEvent('refreshIntents'));
+      } else {
+        showToast('error', data.error || data.message || 'Failed to delete strategy');
+      }
+    } catch (error) {
+      showToast('error', 'Error: ' + error.message);
+    }
+  };
+
+  const handleUpdateStrategy = async () => {
+    if (!editStrategy) {
+      return;
+    }
+
+    const payload = {
+      strategyId: editStrategy.id
+    };
+
+    if (editStrategy.strategyNamespace.trim()) {
+      payload.strategyNamespace = editStrategy.strategyNamespace.trim();
+    }
+
+    if (editStrategy.priority !== '') {
+      payload.priority = parseInt(editStrategy.priority, 10);
+    }
+
+    if (editStrategy.executionTime !== '') {
+      payload.executionTime = parseInt(editStrategy.executionTime, 10);
+    }
+
+    if (editStrategy.commandRegex.trim()) {
+      payload.commandRegex = editStrategy.commandRegex.trim();
+    }
+
+    if (editStrategy.k8sNamespace.trim()) {
+      payload.k8sNamespace = editStrategy.k8sNamespace.split(',').map(ns => ns.trim()).filter(ns => ns);
+    }
+
+    const labelSelectors = editStrategy.selectors
+      .filter(s => s.key.trim() && s.value.trim())
+      .map(s => ({ key: s.key.trim(), value: s.value.trim() }));
+
+    if (labelSelectors.length > 0) {
+      payload.labelSelectors = labelSelectors;
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest('/api/v1/strategies', {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        showToast('success', 'Strategy updated successfully');
+        cancelEditStrategy();
+        getStrategies();
+        window.dispatchEvent(new CustomEvent('refreshIntents'));
+      } else {
+        showToast('error', data.error || data.message || 'Failed to update strategy');
+      }
+    } catch (error) {
+      showToast('error', 'Error: ' + error.message);
+    }
   };
 
   return (
@@ -206,13 +347,6 @@ export default function StrategiesCard() {
             disabled={!isAuthenticated}
           >
             <Download size={16} />
-          </button>
-          <button 
-            className="danger-btn auth-required" 
-            onClick={handleShowDeleteModal}
-            disabled={!isAuthenticated}
-          >
-            <Trash2 size={16} /> Delete Strategy
           </button>
           <button 
             className="primary-btn auth-required" 
@@ -372,8 +506,8 @@ export default function StrategiesCard() {
           
           {loadedStrategies.map((strategy) => (
             <div key={strategy.ID} className="strategy-loaded-item">
-              <div className="strategy-loaded-header" onClick={() => toggleExpand(strategy.ID)}>
-                <div className="strategy-loaded-title">
+              <div className="strategy-loaded-header">
+                <div className="strategy-loaded-title" onClick={() => toggleExpand(strategy.ID)}>
                   <span className="expand-icon">{expandedStrategies[strategy.ID] ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span>
                   <span className="strategy-id">Strategy: {strategy.ID.slice(-8)}...</span>
                   {strategy.StrategyNamespace && (
@@ -385,6 +519,27 @@ export default function StrategiesCard() {
                   {strategy.K8sNamespace && strategy.K8sNamespace.length > 0 && (
                     <span className="strategy-k8s-ns">K8s NS: {strategy.K8sNamespace.join(', ')}</span>
                   )}
+                  <button 
+                    className="secondary-btn-small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      beginEditStrategy(strategy);
+                    }}
+                    title="Edit Strategy"
+                    disabled={!isAuthenticated}
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button 
+                    className="danger-btn-small" 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteStrategy(strategy.ID);
+                    }}
+                    title="Delete Strategy"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
               
@@ -433,6 +588,91 @@ export default function StrategiesCard() {
                             <span className="label-value">{selector.value}</span>
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {editingStrategyId === strategy.ID && editStrategy && (
+                    <div className="strategy-edit-form">
+                      <h4>Edit Strategy</h4>
+                      <div className="strategy-form">
+                        <div>
+                          <label>Strategy Namespace</label>
+                          <input
+                            type="text"
+                            value={editStrategy.strategyNamespace}
+                            onChange={(e) => updateEditField('strategyNamespace', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label>Priority (0-20)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            max="20"
+                            value={editStrategy.priority}
+                            onChange={(e) => updateEditField('priority', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label>Execution Time (ns)</label>
+                          <input
+                            type="number"
+                            value={editStrategy.executionTime}
+                            onChange={(e) => updateEditField('executionTime', e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label>Command Regex (optional)</label>
+                          <input
+                            type="text"
+                            value={editStrategy.commandRegex}
+                            onChange={(e) => updateEditField('commandRegex', e.target.value)}
+                          />
+                        </div>
+                        <div className="full-width">
+                          <label>K8s Namespaces (comma separated)</label>
+                          <input
+                            type="text"
+                            value={editStrategy.k8sNamespace}
+                            onChange={(e) => updateEditField('k8sNamespace', e.target.value)}
+                          />
+                        </div>
+                        <div className="full-width selectors-container">
+                          <label>Label Selectors</label>
+                          <div className="selectors-list">
+                            {editStrategy.selectors.map((selector, index) => (
+                              <div key={index} className="selector-row">
+                                <input
+                                  type="text"
+                                  placeholder="Key"
+                                  value={selector.key}
+                                  onChange={(e) => updateEditSelector(index, 'key', e.target.value)}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Value"
+                                  value={selector.value}
+                                  onChange={(e) => updateEditSelector(index, 'value', e.target.value)}
+                                />
+                                <button type="button" onClick={() => removeEditSelector(index)}>
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" className="add-selector-btn" onClick={addEditSelector}>
+                            + Add Selector
+                          </button>
+                        </div>
+                      </div>
+                      <div className="strategies-actions" style={{ display: 'flex' }}>
+                        <button className="danger-btn" onClick={cancelEditStrategy}>
+                          Cancel
+                        </button>
+                        <button className="success-btn auth-required" onClick={handleUpdateStrategy} disabled={!isAuthenticated}>
+                          <Save size={16} /> Update Strategy
+                        </button>
                       </div>
                     </div>
                   )}

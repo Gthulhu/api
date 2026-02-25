@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/Gthulhu/api/manager/domain"
 	"github.com/Gthulhu/api/manager/errs"
@@ -104,6 +105,182 @@ func (svc *Service) ListScheduleStrategies(ctx context.Context, filterOpts *doma
 
 func (svc *Service) ListScheduleIntents(ctx context.Context, filterOpts *domain.QueryIntentOptions) error {
 	return svc.Repo.QueryIntents(ctx, filterOpts)
+}
+
+func (svc *Service) UpdateScheduleStrategy(ctx context.Context, operator *domain.Claims, strategyID string, strategy *domain.ScheduleStrategy) error {
+	strategyObjID, err := bson.ObjectIDFromHex(strategyID)
+	if err != nil {
+		return errors.WithMessagef(err, "invalid strategy ID %s", strategyID)
+	}
+
+	operatorID, err := operator.GetBsonObjectUID()
+	if err != nil {
+		return errors.WithMessagef(err, "invalid operator ID %s", operator.UID)
+	}
+
+	// Validate ownership and load existing strategy
+	queryOpt := &domain.QueryStrategyOptions{
+		IDs:        []bson.ObjectID{strategyObjID},
+		CreatorIDs: []bson.ObjectID{operatorID},
+	}
+	if err := svc.Repo.QueryStrategies(ctx, queryOpt); err != nil {
+		return err
+	}
+	if len(queryOpt.Result) == 0 {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "strategy not found or you don't have permission to update it", nil)
+	}
+	currentStrategy := queryOpt.Result[0]
+
+	// Query pods based on new strategy criteria before making changes
+	queryPodsOpt := &domain.QueryPodsOptions{
+		K8SNamespace:   strategy.K8sNamespace,
+		LabelSelectors: strategy.LabelSelectors,
+		CommandRegex:   strategy.CommandRegex,
+	}
+	pods, err := svc.K8SAdapter.QueryPods(ctx, queryPodsOpt)
+	if err != nil {
+		return err
+	}
+	if len(pods) == 0 {
+		return errs.NewHTTPStatusError(http.StatusNotFound, "no pods match the strategy criteria", fmt.Errorf("no pods found for the given namespaces and label selectors, opts:%+v", queryPodsOpt))
+	}
+
+	// Load existing intents for DM cleanup
+	oldIntentQuery := &domain.QueryIntentOptions{
+		StrategyIDs: []bson.ObjectID{strategyObjID},
+	}
+	if err := svc.Repo.QueryIntents(ctx, oldIntentQuery); err != nil {
+		return fmt.Errorf("query intents for strategy: %w", err)
+	}
+
+	// Update strategy document
+	now := time.Now().UnixMilli()
+	update := bson.M{
+		"$set": bson.M{
+			"strategyNamespace": strategy.StrategyNamespace,
+			"labelSelectors":    strategy.LabelSelectors,
+			"k8sNamespace":      strategy.K8sNamespace,
+			"commandRegex":      strategy.CommandRegex,
+			"priority":          strategy.Priority,
+			"executionTime":     strategy.ExecutionTime,
+			"updaterID":         operatorID,
+			"updatedTime":       now,
+		},
+	}
+	if err := svc.Repo.UpdateStrategy(ctx, strategyObjID, update); err != nil {
+		return fmt.Errorf("update strategy: %w", err)
+	}
+
+	// Replace intents for the strategy
+	if err := svc.Repo.DeleteIntentsByStrategyID(ctx, strategyObjID); err != nil {
+		return fmt.Errorf("delete intents by strategy ID: %w", err)
+	}
+
+	strategy.ID = strategyObjID
+	strategy.CreatedTime = currentStrategy.CreatedTime
+	strategy.CreatorID = currentStrategy.CreatorID
+	strategy.UpdaterID = operatorID
+	strategy.UpdatedTime = now
+
+	intents := make([]*domain.ScheduleIntent, 0, len(pods))
+	nodeIDsMap := make(map[string]struct{})
+	nodeIDs := make([]string, 0)
+	for _, pod := range pods {
+		intent := domain.NewScheduleIntent(strategy, pod)
+		intents = append(intents, &intent)
+		if _, exists := nodeIDsMap[pod.NodeID]; !exists {
+			nodeIDsMap[pod.NodeID] = struct{}{}
+			nodeIDs = append(nodeIDs, pod.NodeID)
+		}
+	}
+
+	if err := svc.Repo.InsertIntents(ctx, intents); err != nil {
+		return fmt.Errorf("insert intents into repository: %w", err)
+	}
+
+	// Notify decision makers to remove old intents
+	if len(oldIntentQuery.Result) > 0 {
+		oldNodeIDsMap := make(map[string]struct{})
+		oldPodIDsMap := make(map[string]struct{})
+		for _, intent := range oldIntentQuery.Result {
+			oldNodeIDsMap[intent.NodeID] = struct{}{}
+			oldPodIDsMap[intent.PodID] = struct{}{}
+		}
+		oldNodeIDs := make([]string, 0, len(oldNodeIDsMap))
+		for nodeID := range oldNodeIDsMap {
+			oldNodeIDs = append(oldNodeIDs, nodeID)
+		}
+		oldPodIDs := make([]string, 0, len(oldPodIDsMap))
+		for podID := range oldPodIDsMap {
+			oldPodIDs = append(oldPodIDs, podID)
+		}
+
+		dmLabel := domain.LabelSelector{
+			Key:   "app",
+			Value: "decisionmaker",
+		}
+		dmQueryOpt := &domain.QueryDecisionMakerPodsOptions{
+			DecisionMakerLabel: dmLabel,
+			NodeIDs:            oldNodeIDs,
+		}
+		dmPods, err := svc.K8SAdapter.QueryDecisionMakerPods(ctx, dmQueryOpt)
+		if err != nil {
+			logger.Logger(ctx).Warn().Err(err).Msg("failed to query decision maker pods for update deletion notification")
+		} else if len(oldPodIDs) > 0 {
+			deleteReq := &domain.DeleteIntentsRequest{PodIDs: oldPodIDs}
+			for _, dmPod := range dmPods {
+				if err := svc.DMAdapter.DeleteSchedulingIntents(ctx, dmPod, deleteReq); err != nil {
+					logger.Logger(ctx).Warn().Err(err).Msgf("failed to notify decision maker %s to delete intents", dmPod.NodeID)
+				}
+			}
+		}
+	}
+
+	// Send new intents to decision makers
+	dmLabel := domain.LabelSelector{
+		Key:   "app",
+		Value: "decisionmaker",
+	}
+	dmQueryOpt := &domain.QueryDecisionMakerPodsOptions{
+		DecisionMakerLabel: dmLabel,
+		NodeIDs:            nodeIDs,
+	}
+	dms, err := svc.K8SAdapter.QueryDecisionMakerPods(ctx, dmQueryOpt)
+	if err != nil {
+		return err
+	}
+	if len(dms) == 0 {
+		logger.Logger(ctx).Warn().Msgf("no decision maker pods found for scheduling intents, opts:%+v", dmQueryOpt)
+		return nil
+	}
+
+	nodeIDIntentsMap := make(map[string][]*domain.ScheduleIntent)
+	nodeIDIntentIDsMap := make(map[string][]bson.ObjectID)
+	nodeIDDMap := make(map[string]*domain.DecisionMakerPod)
+	for _, dmPod := range dms {
+		for _, intent := range intents {
+			if intent.NodeID == dmPod.NodeID {
+				nodeIDIntentIDsMap[dmPod.Host] = append(nodeIDIntentIDsMap[dmPod.Host], intent.ID)
+				nodeIDIntentsMap[dmPod.Host] = append(nodeIDIntentsMap[dmPod.Host], intent)
+				nodeIDDMap[dmPod.Host] = dmPod
+			}
+		}
+	}
+	for host, intents := range nodeIDIntentsMap {
+		dmPod := nodeIDDMap[host]
+		err = svc.DMAdapter.SendSchedulingIntent(ctx, dmPod, intents)
+		if err != nil {
+			return fmt.Errorf("send scheduling intents to decision maker %s: %w", host, err)
+		}
+		err = svc.Repo.BatchUpdateIntentsState(ctx, nodeIDIntentIDsMap[host], domain.IntentStateSent)
+		if err != nil {
+			return fmt.Errorf("update intents state: %w", err)
+		}
+		logger.Logger(ctx).Info().Msgf("sent %d scheduling intents to decision maker %s", len(intents), host)
+	}
+
+	logger.Logger(ctx).Info().Msgf("updated strategy %s and regenerated intents", strategyID)
+	return nil
 }
 
 func (svc *Service) DeleteScheduleStrategy(ctx context.Context, operator *domain.Claims, strategyID string) error {

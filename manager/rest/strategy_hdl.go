@@ -21,6 +21,16 @@ type CreateScheduleStrategyRequest struct {
 	ExecutionTime     int64           `json:"executionTime,omitempty"`
 }
 
+type UpdateScheduleStrategyRequest struct {
+	StrategyID        string          `json:"strategyId"`
+	StrategyNamespace string          `json:"strategyNamespace,omitempty"`
+	LabelSelectors    []LabelSelector `json:"labelSelectors,omitempty"`
+	K8sNamespace      []string        `json:"k8sNamespace,omitempty"`
+	CommandRegex      string          `json:"commandRegex,omitempty"`
+	Priority          int             `json:"priority,omitempty"`
+	ExecutionTime     int64           `json:"executionTime,omitempty"`
+}
+
 // CreateScheduleStrategy godoc
 // @Summary Create schedule strategy
 // @Description Create a new schedule strategy.
@@ -67,6 +77,63 @@ func (h *Handler) CreateScheduleStrategy(w http.ResponseWriter, r *http.Request)
 
 	err = h.Svc.CreateScheduleStrategy(ctx, &claims, strategy)
 	if err != nil {
+		h.HandleError(ctx, w, err)
+		return
+	}
+
+	response := NewSuccessResponse[string](nil)
+	h.JSONResponse(ctx, w, http.StatusOK, response)
+}
+
+// UpdateScheduleStrategy godoc
+// @Summary Update schedule strategy
+// @Description Update an existing schedule strategy.
+// @Tags Strategies
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateScheduleStrategyRequest true "Schedule strategy payload"
+// @Success 200 {object} SuccessResponse[EmptyResponse]
+// @Failure 400 {object} ErrorResponse
+// @Failure 401 {object} ErrorResponse
+// @Failure 403 {object} ErrorResponse
+// @Failure 404 {object} ErrorResponse
+// @Failure 500 {object} ErrorResponse
+// @Router /api/v1/strategies [put]
+func (h *Handler) UpdateScheduleStrategy(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var req UpdateScheduleStrategyRequest
+	if err := h.JSONBind(r, &req); err != nil {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Invalid request body", err)
+		return
+	}
+	if req.StrategyID == "" {
+		h.ErrorResponse(ctx, w, http.StatusBadRequest, "Strategy ID is required", nil)
+		return
+	}
+
+	strategy := &domain.ScheduleStrategy{
+		StrategyNamespace: req.StrategyNamespace,
+		LabelSelectors:    make([]domain.LabelSelector, len(req.LabelSelectors)),
+		K8sNamespace:      req.K8sNamespace,
+		CommandRegex:      req.CommandRegex,
+		Priority:          req.Priority,
+		ExecutionTime:     req.ExecutionTime,
+	}
+	for i, ls := range req.LabelSelectors {
+		strategy.LabelSelectors[i] = domain.LabelSelector{
+			Key:   ls.Key,
+			Value: ls.Value,
+		}
+	}
+
+	claims, ok := h.GetClaimsFromContext(ctx)
+	if !ok {
+		h.ErrorResponse(ctx, w, http.StatusUnauthorized, "Unauthorized", nil)
+		return
+	}
+
+	if err := h.Svc.UpdateScheduleStrategy(ctx, &claims, req.StrategyID, strategy); err != nil {
 		h.HandleError(ctx, w, err)
 		return
 	}

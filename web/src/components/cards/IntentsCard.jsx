@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useApp } from '../../context/AppContext';
-import { ClipboardList, RefreshCw, Trash2, Lock, Loader2, XCircle, Inbox, ChevronDown, ChevronRight, Server, HelpCircle } from 'lucide-react';
+import { ClipboardList, RefreshCw, Lock, Loader2, XCircle, Inbox, ChevronDown, ChevronRight, Server, HelpCircle } from 'lucide-react';
 
 export default function IntentsCard() {
   const { isAuthenticated, makeAuthenticatedRequest, showToast } = useApp();
@@ -84,9 +84,7 @@ export default function IntentsCard() {
     }
   }, [isAuthenticated]);
 
-  const handleShowDeleteModal = () => {
-    window.dispatchEvent(new CustomEvent('openDeleteIntentsModal'));
-  };
+
 
   const toggleExpand = (intentId) => {
     setExpandedIntents(prev => ({
@@ -138,13 +136,6 @@ export default function IntentsCard() {
             disabled={!isAuthenticated}
           >
             <RefreshCw size={16} />
-          </button>
-          <button 
-            className="danger-btn auth-required" 
-            onClick={handleShowDeleteModal}
-            disabled={!isAuthenticated}
-          >
-            <Trash2 size={16} /> Delete Intents
           </button>
         </div>
       </div>
