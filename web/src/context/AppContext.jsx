@@ -31,14 +31,16 @@ export function AppProvider({ children }) {
   // Toast notifications
   const showToast = useCallback((type, message) => {
     const id = Date.now();
-    setToasts(prev => [...prev, { id, type, message }]);
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 4000);
+    const toast = { id, type, message, timestamp: new Date().toISOString() };
+    setToasts(prev => [...prev, toast].slice(-50));
   }, []);
 
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const clearToasts = useCallback(() => {
+    setToasts([]);
   }, []);
 
   // Authentication
@@ -112,6 +114,7 @@ export function AppProvider({ children }) {
     toasts,
     showToast,
     removeToast,
+    clearToasts,
     login,
     logout,
     getApiUrl,

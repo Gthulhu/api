@@ -28,7 +28,7 @@ export default function Header() {
           </div>
           <div className="logo-text">
             <h1>GTHULHU</h1>
-            <span className="tagline">eBPF Scheduler Control Interface</span>
+            <span className="tagline">Next generation scheduling platform</span>
           </div>
         </div>
         <div className="auth-section" id="authSection">

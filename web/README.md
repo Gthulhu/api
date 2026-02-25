@@ -21,8 +21,6 @@ react-app/
 │   │   ├── modals/
 │   │   │   ├── LoginModal.jsx
 │   │   │   ├── ConfigModal.jsx
-│   │   │   ├── DeleteIntentsModal.jsx
-│   │   │   └── DeleteStrategyModal.jsx
 │   │   ├── Header.jsx
 │   │   ├── Footer.jsx
 │   │   ├── Dashboard.jsx

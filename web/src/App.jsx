@@ -5,8 +5,6 @@ import Footer from './components/Footer';
 import Dashboard from './components/Dashboard';
 import LoginModal from './components/modals/LoginModal';
 import ConfigModal from './components/modals/ConfigModal';
-import DeleteIntentsModal from './components/modals/DeleteIntentsModal';
-import DeleteStrategyModal from './components/modals/DeleteStrategyModal';
 import ToastContainer from './components/ToastContainer';
 
 function App() {
@@ -24,8 +22,6 @@ function App() {
         {/* Modals */}
         <LoginModal />
         <ConfigModal />
-        <DeleteIntentsModal />
-        <DeleteStrategyModal />
         
         {/* Toast Container */}
         <ToastContainer />

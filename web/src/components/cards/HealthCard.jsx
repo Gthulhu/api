@@ -8,7 +8,7 @@ export default function HealthCard() {
   const [healthClass, setHealthClass] = useState('');
   const [healthDetails, setHealthDetails] = useState('Awaiting health check...');
   const [detailsClass, setDetailsClass] = useState('');
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
   const intervalRef = useRef(null);
 
   const checkHealth = useCallback(async () => {

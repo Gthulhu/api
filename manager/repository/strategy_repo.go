@@ -158,6 +158,14 @@ func (r *repo) DeleteStrategy(ctx context.Context, strategyID bson.ObjectID) err
 	return err
 }
 
+func (r *repo) UpdateStrategy(ctx context.Context, strategyID bson.ObjectID, update bson.M) error {
+	if update == nil {
+		return errors.New("nil update")
+	}
+	_, err := r.db.Collection(scheduleStrategyCollection).UpdateOne(ctx, bson.M{"_id": strategyID}, update)
+	return err
+}
+
 func (r *repo) DeleteIntents(ctx context.Context, intentIDs []bson.ObjectID) error {
 	if len(intentIDs) == 0 {
 		return nil

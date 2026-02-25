@@ -67,6 +67,7 @@ type Repository interface {
 	BatchUpdateIntentsState(ctx context.Context, intentIDs []bson.ObjectID, newState IntentState) error
 	QueryStrategies(ctx context.Context, opt *QueryStrategyOptions) error
 	QueryIntents(ctx context.Context, opt *QueryIntentOptions) error
+	UpdateStrategy(ctx context.Context, strategyID bson.ObjectID, update bson.M) error
 	DeleteStrategy(ctx context.Context, strategyID bson.ObjectID) error
 	DeleteIntents(ctx context.Context, intentIDs []bson.ObjectID) error
 	DeleteIntentsByStrategyID(ctx context.Context, strategyID bson.ObjectID) error
@@ -91,6 +92,7 @@ type Service interface {
 	CreateScheduleStrategy(ctx context.Context, operator *Claims, strategy *ScheduleStrategy) error
 	ListScheduleStrategies(ctx context.Context, filterOpts *QueryStrategyOptions) error
 	ListScheduleIntents(ctx context.Context, filterOpts *QueryIntentOptions) error
+	UpdateScheduleStrategy(ctx context.Context, operator *Claims, strategyID string, strategy *ScheduleStrategy) error
 	DeleteScheduleStrategy(ctx context.Context, operator *Claims, strategyID string) error
 	DeleteScheduleIntents(ctx context.Context, operator *Claims, intentIDs []string) error
 	GetPodPIDMapping(ctx context.Context, nodeID string) (*PodPIDMappingResponse, error)
