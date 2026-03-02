@@ -75,11 +75,9 @@ type repo struct {
 }
 
 const (
-	userCollection             = "users"
-	roleCollection             = "roles"
-	permissionCollection       = "permissions"
-	auditLogCollection         = "audit_logs"
-	defaultTimestampField      = "timestamp"
-	scheduleStrategyCollection = "schedule_strategies"
-	scheduleIntentCollection   = "schedule_intents"
+	userCollection        = "users"
+	roleCollection        = "roles"
+	permissionCollection  = "permissions"
+	auditLogCollection    = "audit_logs"
+	defaultTimestampField = "timestamp"
 )
