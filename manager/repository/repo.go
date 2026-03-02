@@ -12,11 +12,14 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.uber.org/fx"
+	"k8s.io/client-go/dynamic"
 )
 
 type Params struct {
 	fx.In
-	MongoConfig config.MongoDBConfig
+	MongoConfig   config.MongoDBConfig
+	K8SConfig     config.K8SConfig
+	DynamicClient dynamic.Interface
 }
 
 func NewRepository(params Params) (domain.Repository, error) {
@@ -51,15 +54,24 @@ func NewRepository(params Params) (domain.Repository, error) {
 		dbName = "manager"
 	}
 
+	crNamespace := params.K8SConfig.CRDNamespace
+	if crNamespace == "" {
+		crNamespace = "gthulhu-system"
+	}
+
 	return &repo{
-		client: client,
-		db:     client.Database(dbName),
+		client:      client,
+		db:          client.Database(dbName),
+		k8sDynamic:  params.DynamicClient,
+		crNamespace: crNamespace,
 	}, nil
 }
 
 type repo struct {
-	client *mongo.Client
-	db     *mongo.Database
+	client      *mongo.Client
+	db          *mongo.Database
+	k8sDynamic  dynamic.Interface
+	crNamespace string
 }
 
 const (
