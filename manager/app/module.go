@@ -11,6 +11,7 @@ import (
 	"github.com/Gthulhu/api/pkg/container"
 	"go.uber.org/fx"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 )
@@ -116,5 +117,11 @@ func TestRepoModule(cfg config.ManageConfig, containerBuilder *container.Contain
 
 // NewFakeDynamicClient returns a fake Kubernetes dynamic client for testing.
 func NewFakeDynamicClient() dynamic.Interface {
-	return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme())
+	scheme := runtime.NewScheme()
+	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(scheme,
+		map[schema.GroupVersionResource]string{
+			{Group: "gthulhu.io", Version: "v1alpha1", Resource: "schedulingstrategies"}: "SchedulingStrategyList",
+			{Group: "gthulhu.io", Version: "v1alpha1", Resource: "schedulingintents"}:    "SchedulingIntentList",
+		},
+	)
 }
