@@ -41,9 +41,9 @@ func TestCRInsertStrategyAndIntents(t *testing.T) {
 		LabelSelectors: []domain.LabelSelector{
 			{Key: "app", Value: "nginx"},
 		},
-		K8sNamespace: []string{"default"},
-		CommandRegex: "nginx",
-		Priority:     10,
+		K8sNamespace:  []string{"default"},
+		CommandRegex:  "nginx",
+		Priority:      10,
 		ExecutionTime: 5000,
 	}
 	intents := []*domain.ScheduleIntent{
@@ -260,4 +260,24 @@ func TestCRQueryIntentsByCreator(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, opt.Result, 1)
 	assert.Equal(t, "p1", opt.Result[0].PodID)
+}
+
+func TestCRQueryIntentsByStates(t *testing.T) {
+	r := newTestCRRepo()
+	ctx := context.Background()
+
+	creatorID := bson.NewObjectID()
+	strategyID := bson.NewObjectID()
+	intents := []*domain.ScheduleIntent{
+		{BaseEntity: domain.BaseEntity{CreatorID: creatorID, UpdaterID: creatorID}, StrategyID: strategyID, PodID: "p1", NodeID: "n1", State: domain.IntentStateInitialized},
+		{BaseEntity: domain.BaseEntity{CreatorID: creatorID, UpdaterID: creatorID}, StrategyID: strategyID, PodID: "p2", NodeID: "n1", State: domain.IntentStateSent},
+		{BaseEntity: domain.BaseEntity{CreatorID: creatorID, UpdaterID: creatorID}, StrategyID: strategyID, PodID: "p3", NodeID: "n1", State: domain.IntentStateUnknown},
+	}
+	require.NoError(t, r.InsertIntents(ctx, intents))
+
+	opt := &domain.QueryIntentOptions{States: []domain.IntentState{domain.IntentStateSent, domain.IntentStateUnknown}}
+	err := r.QueryIntents(ctx, opt)
+	require.NoError(t, err)
+	require.Len(t, opt.Result, 2)
+	assert.ElementsMatch(t, []string{"p2", "p3"}, []string{opt.Result[0].PodID, opt.Result[1].PodID})
 }

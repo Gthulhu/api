@@ -10,9 +10,9 @@ import (
 
 	"github.com/Gthulhu/api/manager/domain"
 	"go.mongodb.org/mongo-driver/v2/bson"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -60,6 +60,7 @@ func (r *repo) InsertStrategyAndIntents(ctx context.Context, strategy *domain.Sc
 	if err != nil {
 		return fmt.Errorf("create strategy CR: %w", err)
 	}
+	createdIntentNames := make([]string, 0, len(intents))
 	// Assign the ID back from the created object name (may differ on retry).
 	if id, e := bson.ObjectIDFromHex(created.GetName()); e == nil {
 		strategy.ID = id
@@ -78,8 +79,24 @@ func (r *repo) InsertStrategyAndIntents(ctx context.Context, strategy *domain.Sc
 		}
 		intentObj := domainIntentToUnstructured(intent, r.crNamespace)
 		if _, err := r.k8sDynamic.Resource(intentGVR).Namespace(r.crNamespace).Create(ctx, intentObj, metav1.CreateOptions{}); err != nil {
+			rollbackErrs := make([]string, 0, len(createdIntentNames)+1)
+			for _, createdIntentName := range createdIntentNames {
+				delErr := r.k8sDynamic.Resource(intentGVR).Namespace(r.crNamespace).Delete(ctx, createdIntentName, metav1.DeleteOptions{})
+				if delErr != nil && !k8serrors.IsNotFound(delErr) {
+					rollbackErrs = append(rollbackErrs, fmt.Sprintf("delete intent CR %s: %v", createdIntentName, delErr))
+				}
+			}
+			delStrategyErr := r.k8sDynamic.Resource(strategyGVR).Namespace(r.crNamespace).Delete(ctx, strategy.ID.Hex(), metav1.DeleteOptions{})
+			if delStrategyErr != nil && !k8serrors.IsNotFound(delStrategyErr) {
+				rollbackErrs = append(rollbackErrs, fmt.Sprintf("delete strategy CR %s: %v", strategy.ID.Hex(), delStrategyErr))
+			}
+
+			if len(rollbackErrs) > 0 {
+				return fmt.Errorf("create intent CR: %w; rollback errors: %s", err, strings.Join(rollbackErrs, "; "))
+			}
 			return fmt.Errorf("create intent CR: %w", err)
 		}
+		createdIntentNames = append(createdIntentNames, intent.ID.Hex())
 	}
 	return nil
 }
@@ -118,9 +135,12 @@ func (r *repo) BatchUpdateIntentsState(ctx context.Context, intentIDs []bson.Obj
 			}
 			return fmt.Errorf("get intent CR %s: %w", name, err)
 		}
-		spec, _, _ := unstructured.NestedMap(obj.Object, "spec")
-		if spec == nil {
-			spec = map[string]interface{}{}
+		spec, found, err := unstructured.NestedMap(obj.Object, "spec")
+		if err != nil {
+			return fmt.Errorf("read spec for intent CR %s: %w", name, err)
+		}
+		if !found {
+			return fmt.Errorf("spec not found for intent CR %s", name)
 		}
 		spec["state"] = int64(newState)
 		spec["updatedTime"] = now
@@ -218,6 +238,9 @@ func (r *repo) QueryIntents(ctx context.Context, opt *domain.QueryIntentOptions)
 		selParts = append(selParts, s)
 	}
 	if s := buildLabelSelector(opt.StrategyIDs, labelStrategyID); s != "" {
+		selParts = append(selParts, s)
+	}
+	if s := buildStateLabelSelector(opt.States); s != "" {
 		selParts = append(selParts, s)
 	}
 	sel := strings.Join(selParts, ",")
@@ -347,8 +370,6 @@ func unstructuredToDomainStrategy(obj *unstructured.Unstructured) (*domain.Sched
 	strategy := &domain.ScheduleStrategy{
 		BaseEntity: domain.BaseEntity{
 			ID:          id,
-			CreatorID:   hexToObjectID(getStr(spec, "creatorID")),
-			UpdaterID:   hexToObjectID(getStr(spec, "updaterID")),
 			CreatedTime: getInt64(spec, "createdTime"),
 			UpdatedTime: getInt64(spec, "updatedTime"),
 		},
@@ -357,6 +378,18 @@ func unstructuredToDomainStrategy(obj *unstructured.Unstructured) (*domain.Sched
 		Priority:          int(getInt64(spec, "priority")),
 		ExecutionTime:     getInt64(spec, "executionTime"),
 	}
+
+	creatorID, err := parseObjectIDField(spec, "creatorID")
+	if err != nil {
+		return nil, fmt.Errorf("invalid creatorID in strategy CR %s: %w", obj.GetName(), err)
+	}
+	strategy.CreatorID = creatorID
+
+	updaterID, err := parseObjectIDField(spec, "updaterID")
+	if err != nil {
+		return nil, fmt.Errorf("invalid updaterID in strategy CR %s: %w", obj.GetName(), err)
+	}
+	strategy.UpdaterID = updaterID
 
 	if raw, ok := spec["labelSelectors"]; ok {
 		if arr, ok := raw.([]interface{}); ok {
@@ -436,12 +469,9 @@ func unstructuredToDomainIntent(obj *unstructured.Unstructured) (*domain.Schedul
 	intent := &domain.ScheduleIntent{
 		BaseEntity: domain.BaseEntity{
 			ID:          id,
-			CreatorID:   hexToObjectID(getStr(spec, "creatorID")),
-			UpdaterID:   hexToObjectID(getStr(spec, "updaterID")),
 			CreatedTime: getInt64(spec, "createdTime"),
 			UpdatedTime: getInt64(spec, "updatedTime"),
 		},
-		StrategyID:    hexToObjectID(getStr(spec, "strategyID")),
 		PodID:         getStr(spec, "podID"),
 		PodName:       getStr(spec, "podName"),
 		NodeID:        getStr(spec, "nodeID"),
@@ -451,6 +481,24 @@ func unstructuredToDomainIntent(obj *unstructured.Unstructured) (*domain.Schedul
 		ExecutionTime: getInt64(spec, "executionTime"),
 		State:         domain.IntentState(getInt64(spec, "state")),
 	}
+
+	creatorID, err := parseObjectIDField(spec, "creatorID")
+	if err != nil {
+		return nil, fmt.Errorf("invalid creatorID in intent CR %s: %w", obj.GetName(), err)
+	}
+	intent.CreatorID = creatorID
+
+	updaterID, err := parseObjectIDField(spec, "updaterID")
+	if err != nil {
+		return nil, fmt.Errorf("invalid updaterID in intent CR %s: %w", obj.GetName(), err)
+	}
+	intent.UpdaterID = updaterID
+
+	strategyID, err := parseObjectIDField(spec, "strategyID")
+	if err != nil {
+		return nil, fmt.Errorf("invalid strategyID in intent CR %s: %w", obj.GetName(), err)
+	}
+	intent.StrategyID = strategyID
 
 	if raw, ok := spec["podLabels"]; ok {
 		if m, ok := raw.(map[string]interface{}); ok {
@@ -558,9 +606,37 @@ func sliceOverlap(a, b []string) bool {
 	return false
 }
 
-func hexToObjectID(hex string) bson.ObjectID {
-	id, _ := bson.ObjectIDFromHex(hex)
-	return id
+func buildStateLabelSelector(states []domain.IntentState) string {
+	if len(states) == 0 {
+		return ""
+	}
+	if len(states) == 1 {
+		return labelState + "=" + strconv.Itoa(int(states[0]))
+	}
+	vals := make([]string, len(states))
+	for i, state := range states {
+		vals[i] = strconv.Itoa(int(state))
+	}
+	return labelState + " in (" + strings.Join(vals, ",") + ")"
+}
+
+func parseObjectIDField(m map[string]interface{}, key string) (bson.ObjectID, error) {
+	v, ok := m[key]
+	if !ok {
+		return bson.ObjectID{}, fmt.Errorf("missing field %s", key)
+	}
+	value, ok := v.(string)
+	if !ok {
+		return bson.ObjectID{}, fmt.Errorf("field %s is not a string", key)
+	}
+	if value == "" {
+		return bson.ObjectID{}, fmt.Errorf("field %s is empty", key)
+	}
+	id, err := bson.ObjectIDFromHex(value)
+	if err != nil {
+		return bson.ObjectID{}, err
+	}
+	return id, nil
 }
 
 func getStr(m map[string]interface{}, key string) string {

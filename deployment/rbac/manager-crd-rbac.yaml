@@ -17,8 +17,8 @@ metadata:
   name: gthulhu-manager-crd-binding
 subjects:
   - kind: ServiceAccount
-    name: gthulhu-manager
-    namespace: gthulhu-system
+    name: manager
+    namespace: gthulhu-api-local
 roleRef:
   kind: ClusterRole
   name: gthulhu-manager-crd
